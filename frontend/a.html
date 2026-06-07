@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>数学之美 - 作品展示</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary": "#526069",
+                        "on-tertiary-fixed": "#0d1c2e",
+                        "on-surface": "#191c1e",
+                        "secondary": "#625f4f",
+                        "on-surface-variant": "#43474a",
+                        "tertiary-fixed": "#d5e3fc",
+                        "on-primary-fixed": "#0f1d25",
+                        "on-background": "#191c1e",
+                        "surface-container-low": "#f2f4f6",
+                        "inverse-on-surface": "#eff1f3",
+                        "on-secondary-fixed": "#1e1c10",
+                        "primary-fixed-dim": "#bac9d3",
+                        "secondary-fixed": "#e8e2cf",
+                        "on-secondary-container": "#666353",
+                        "on-secondary-fixed-variant": "#4a4739",
+                        "surface-tint": "#526069",
+                        "on-error-container": "#93000a",
+                        "inverse-primary": "#bac9d3",
+                        "surface-container-high": "#e6e8ea",
+                        "tertiary-container": "#e9f0ff",
+                        "surface-container-highest": "#e0e3e5",
+                        "primary-container": "#e3f2fd",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-fixed-dim": "#ccc6b4",
+                        "secondary-container": "#e5e0cc",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-fixed-variant": "#3a485b",
+                        "on-secondary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "on-primary-container": "#606f78",
+                        "on-error": "#ffffff",
+                        "error": "#ba1a1a",
+                        "on-tertiary": "#ffffff",
+                        "surface-bright": "#f7f9fb",
+                        "outline-variant": "#c3c7cb",
+                        "on-tertiary-container": "#5f6d82",
+                        "background": "#f7f9fb",
+                        "surface-dim": "#d8dadc",
+                        "primary-fixed": "#d6e5ef",
+                        "surface": "#f7f9fb",
+                        "tertiary": "#515f74",
+                        "surface-variant": "#e0e3e5",
+                        "surface-container": "#eceef0",
+                        "tertiary-fixed-dim": "#b9c7df",
+                        "outline": "#73787b",
+                        "on-primary-fixed-variant": "#3b4951",
+                        "inverse-surface": "#2d3133"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "24px",
+                        "margin-desktop": "40px",
+                        "unit": "8px",
+                        "margin-mobile": "16px",
+                        "container-max": "1280px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Hanken Grotesk"],
+                        "body-lg": ["Hanken Grotesk"],
+                        "label-sm": ["Hanken Grotesk"],
+                        "headline-md": ["Hanken Grotesk"],
+                        "display-lg": ["Hanken Grotesk"],
+                        "headline-lg": ["Hanken Grotesk"]
+                    },
+                    "fontSize": {
+                        "body-md": ["16px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "label-sm": ["14px", { "lineHeight": "1.2", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "headline-md": ["24px", { "lineHeight": "1.4", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-lg": ["32px", { "lineHeight": "1.4", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: theme('colors.background');
+            background-image: linear-gradient(theme('colors.primary-container') 1px, transparent 1px),
+                              linear-gradient(90deg, theme('colors.primary-container') 1px, transparent 1px);
+            background-size: 32px 32px;
+            background-position: center top;
+        }
+        .glass-card {
+            background-color: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .glass-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+            border-color: rgba(255, 255, 255, 0.8);
+        }
+        .chip {
+            background-color: #FFF9E5;
+            border: 1px solid #EBE4CD;
+        }
+    </style>
+</head>
+<body class="text-on-background min-h-screen flex flex-col font-body-md">
+<!-- TopNavBar -->
+<nav class="bg-surface/60 backdrop-blur-md dark:bg-surface-dim/60 fixed top-0 w-full flex justify-between items-center px-margin-desktop h-20 docked full-width top-0 z-50 border-b border-white/20 flat no shadows">
+<div class="flex items-center gap-8">
+<div class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed">
+                MathAssociation
+            </div>
+<div class="hidden md:flex gap-6">
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-primary transition-colors duration-200 font-body-md text-body-md" href="#">首页</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-primary transition-colors duration-200 font-body-md text-body-md" href="#">活动</a>
+<a class="text-primary dark:text-primary-fixed border-b-2 border-primary pb-1 font-bold font-body-md text-body-md" href="#">资源</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-primary transition-colors duration-200 font-body-md text-body-md" href="#">关于我们</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-primary transition-colors duration-200 font-body-md text-body-md" href="#">动态</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-primary transition-colors duration-200 font-body-md text-body-md" href="#">会员中心</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden md:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="pl-10 pr-4 py-2 bg-transparent border-b border-outline-variant focus:border-primary focus:ring-0 transition-colors w-48 text-body-md font-body-md placeholder:text-on-surface-variant/50" placeholder="搜索..." type="text"/>
+</div>
+<button class="bg-primary-container text-on-primary-container px-6 py-2 rounded-full font-label-sm text-label-sm hover:bg-primary-fixed transition-colors scale-95 active:scale-90">进入后台</button>
+</div>
+</nav>
+<!-- Main Content -->
+<main class="flex-grow pt-32 pb-24 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto w-full flex flex-col md:flex-row gap-gutter">
+<!-- Sidebar Filters -->
+<aside class="w-full md:w-64 flex-shrink-0 space-y-8"><div class="glass-card rounded-xl p-6"><h3 class="font-headline-md text-headline-md text-primary mb-4 border-b border-outline-variant/30 pb-2">活动分类</h3><ul class="space-y-2"><li><button class="w-full text-left px-4 py-2 rounded-lg bg-primary-container text-on-primary-container font-label-sm text-label-sm">日常展示</button></li><li><button class="w-full text-left px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-sm text-label-sm">学术竞赛</button></li></ul></div>
+<div class="glass-card rounded-xl p-6">
+<h3 class="font-headline-md text-headline-md text-primary mb-4 border-b border-outline-variant/30 pb-2">领域分类</h3>
+<ul class="space-y-2">
+<li><button class="w-full text-left px-4 py-2 rounded-lg bg-primary-container text-on-primary-container font-label-sm text-label-sm">全部领域</button></li>
+<li><button class="w-full text-left px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-sm text-label-sm">几何学</button></li>
+<li><button class="w-full text-left px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-sm text-label-sm">代数学</button></li>
+<li><button class="w-full text-left px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-sm text-label-sm">算法与计算</button></li>
+<li><button class="w-full text-left px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-sm text-label-sm">拓扑学</button></li>
+<li><button class="w-full text-left px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-sm text-label-sm">数论</button></li>
+</ul>
+</div>
+<div class="glass-card rounded-xl p-6 hidden md:block">
+<h3 class="font-headline-md text-headline-md text-primary mb-4 border-b border-outline-variant/30 pb-2">热门标签</h3>
+<div class="flex flex-wrap gap-2">
+<span class="chip px-3 py-1 rounded-full font-label-sm text-label-sm text-on-secondary-container"># 黎曼猜想</span>
+<span class="chip px-3 py-1 rounded-full font-label-sm text-label-sm text-on-secondary-container"># 庞加莱猜想</span>
+<span class="chip px-3 py-1 rounded-full font-label-sm text-label-sm text-on-secondary-container"># 分形几何</span>
+<span class="chip px-3 py-1 rounded-full font-label-sm text-label-sm text-on-secondary-container"># 组合数学</span>
+</div>
+</div>
+</aside>
+<!-- Showcase Canvas -->
+<section class="flex-grow flex flex-col">
+<!-- Header & Sorting -->
+<header class="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div>
+<h1 class="font-display-lg text-display-lg text-primary mb-2">数韵之美 - 作品与竞赛展示</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant">在这里，见证数学与创意的交汇</p>
+</div>
+<div class="flex items-center gap-4">
+<span class="font-label-sm text-label-sm text-on-surface-variant">排序方式:</span><span class="font-label-sm text-label-sm text-on-surface-variant ml-4">赛事筛选:</span><div class="relative"><select class="appearance-none bg-surface/80 border border-outline-variant/50 text-primary py-2 pl-4 pr-10 rounded-lg font-label-sm text-label-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary backdrop-blur-sm cursor-pointer"><option>全部赛事</option><option>2024 拓扑视觉挑战赛</option><option>曼德勃罗算法大赛</option></select><span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant">expand_more</span></div>
+<div class="relative">
+<select class="appearance-none bg-surface/80 border border-outline-variant/50 text-primary py-2 pl-4 pr-10 rounded-lg font-label-sm text-label-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary backdrop-blur-sm cursor-pointer">
+<option>点赞最高</option>
+<option>最新发布</option>
+<option>浏览最多</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant">expand_more</span>
+</div>
+</div>
+</header>
+<!-- Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-gutter">
+<!-- Card 1 -->
+<article class="glass-card rounded-2xl overflow-hidden flex flex-col h-full group">
+<div class="relative h-48 overflow-hidden bg-surface-container">
+<img alt="3D render of a complex geometric shape, possibly a Calabi-Yau manifold, glowing with iridescent colors against a pale, ethereal background. The light mode aesthetic features soft, diffused lighting and glassmorphic elements." class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" data-alt="A highly detailed 3D render of a complex geometric shape, possibly a Calabi-Yau manifold, floating in an ethereal space. The object glows softly with iridescent colors like pale blue and pearl. The background is a minimalist, light mode environment with subtle grid lines. Soft, diffused lighting enhances the glassmorphic aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3Gy95gE90JgVDWJY1Yl0MQxMeUk3D4EUrlMs_rBkJ0BYmLF2222hyM-Tj-F_rfQIQQIetP6OPW8BJDwmHbYGYwK3X1VEd9H9oFijNnRxXYY24BAbkSYOa-0R0vea9z60q-Ua68tOqjZE68pq_yQ16T5khv5xTzfdujV3M7cvFeUQrI6kg-lzIahP7ZtvIGWMC6WaQUJXVxmhTPJAEgAyPELuMTWblh2tOmVZKRVEjN3Vm5PaPWwIl9xaLH9R0bwqN8MX3qoRYGWNm"/>
+<div class="absolute top-3 left-3 flex gap-2">
+<span class="chip px-2 py-1 rounded-md font-label-sm text-label-sm text-on-secondary-container shadow-sm">拓扑学</span>
+<span class="bg-tertiary text-on-tertiary px-2 py-1 rounded-md font-label-sm text-label-sm shadow-sm">竞赛作品</span></div>
+<div class="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full flex items-center gap-1 text-primary border border-primary/20"><span class="material-symbols-outlined text-[18px] text-yellow-500">emoji_events</span><span class="font-label-sm text-label-sm font-bold">一等奖</span></div></div>
+<div class="p-6 flex flex-col flex-grow">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-2 line-clamp-2">【2024拓扑大赛】克莱因瓶的多维可视化投影模型</h2>
+<p class="font-label-sm text-label-sm text-primary mb-3">作者：李明宇</p>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-3 mb-6 flex-grow">通过参数化方程构建的三维模型，探讨了不可定向曲面在四维空间中的自相交特性，采用渐变着色以区分内外表面，直观展示拓扑变换的奇妙之处。</p>
+<div class="flex justify-between items-center mt-auto pt-4 border-t border-outline-variant/20">
+<button class="flex items-center gap-1 text-on-surface-variant hover:text-error transition-colors group/btn">
+<span class="material-symbols-outlined text-[20px] group-hover/btn:scale-110 transition-transform">favorite</span>
+<span class="font-label-sm text-label-sm">1,245</span>
+</button>
+<span class="material-symbols-outlined text-outline-variant opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+</div>
+</div>
+</article>
+<!-- Card 2 -->
+<article class="glass-card rounded-2xl overflow-hidden flex flex-col h-full group">
+<div class="relative h-48 overflow-hidden bg-surface-container">
+<img alt="A whiteboard filled with complex mathematical equations and diagrams, written in neat handwriting. The lighting is bright and even, typical of a modern lecture hall or study room." class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" data-alt="A clean, modern photograph of a pristine white glass board covered in intricate mathematical equations, integrals, and geometric diagrams written in dark blue marker. The lighting is bright, high-key, and even, creating a clear, intellectual light mode aesthetic. The background context suggests a contemporary academic setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDZ20mLFvs1cRzuxh4J6_bKHC-tUwYJ2Oag6un3bCgWLKnIJqkH7MDzTR-sHBZnswr9azMS8WxmwTyPCyRJxEyF7oedGjm5M4iL17908xQjMVmyWOJ7Lmdr0idpW4j81EF203pW-zN2JuhUNxpclmbZ0wKbJvVgzUaSMZ4hferUXQZGpte0ngHtNdy6O8sDBEhP5YB_GebjERuqdAqqQCOFnhuRSTsoy2NZ2hs4qIfzwOIm2zuDgF0fEhBpGPr5y_mQ1i9kWB1YYgM2"/>
+<div class="absolute top-3 left-3 flex gap-2">
+<span class="chip px-2 py-1 rounded-md font-label-sm text-label-sm text-on-secondary-container shadow-sm">代数学</span>
+</div>
+</div>
+<div class="p-6 flex flex-col flex-grow">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-2 line-clamp-2">抽象代数中的群论证明手稿</h2>
+<p class="font-label-sm text-label-sm text-primary mb-3">作者：张博士</p>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-3 mb-6 flex-grow">一份详尽的关于有限单群分类定理的推导过程手稿，展示了逻辑推理的严密之美，字体隽秀，排版清晰，如同艺术品般呈现。</p>
+<div class="flex justify-between items-center mt-auto pt-4 border-t border-outline-variant/20">
+<button class="flex items-center gap-1 text-on-surface-variant hover:text-error transition-colors group/btn">
+<span class="material-symbols-outlined text-[20px] group-hover/btn:scale-110 transition-transform">favorite</span>
+<span class="font-label-sm text-label-sm">982</span>
+</button>
+<span class="material-symbols-outlined text-outline-variant opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+</div>
+</div>
+</article>
+<!-- Card 3 -->
+<article class="glass-card rounded-2xl overflow-hidden flex flex-col h-full group">
+<div class="relative h-48 overflow-hidden bg-surface-container">
+<img alt="A close-up of a computer screen displaying a colorful fractal pattern, likely a Mandelbrot set zoom. The image is vibrant and intricate, representing algorithmic beauty." class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" data-alt="A macro shot of a high-resolution display showing a mesmerizing, colorful fractal pattern, specifically a deep zoom into the Mandelbrot set. The colors are vibrant yet harmonious, set against a minimalist light interface framing. The overall mood is technological, precise, and visually striking in a light mode context." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAn4KzdqxhvJrGOOyhCacr5j12XI28kl3aNaGoT5hDwEA0vSwMwcwcSwL-B6wlHb69fcSAlBJgSXHT_UXEuNOyiUi8KVto_dk2Ab_rX0fJqDLFD5IPtOin14FRn5P7Q4NdTfaoDhXF9tf5Gzec1k4y1jP5KWqOdJ1ToiCCijLk_WK_vcVNWzKF9e16miX-_IxkgEvz2s0aowtnoIr8FEpeAaRq9lDbIqNQklwu3BQ797FnNgjnXxUwCalWRq6XZtga0gXmvVEmSKFEq"/>
+<div class="absolute top-3 left-3 flex gap-2">
+<span class="chip px-2 py-1 rounded-md font-label-sm text-label-sm text-on-secondary-container shadow-sm">算法与计算</span>
+</div>
+</div>
+<div class="p-6 flex flex-col flex-grow">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-2 line-clamp-2">分形宇宙：曼德勃罗集的深度渲染</h2>
+<p class="font-label-sm text-label-sm text-primary mb-3">作者：Chen &amp; Wang</p>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-3 mb-6 flex-grow">利用自行编写的并行计算算法，对曼德勃罗集进行超高精度的渲染。每一次放大都揭示出全新且无限复杂的自相似结构，展现了简单规则下的无限可能。</p>
+<div class="flex justify-between items-center mt-auto pt-4 border-t border-outline-variant/20">
+<button class="flex items-center gap-1 text-on-surface-variant hover:text-error transition-colors group/btn">
+<span class="material-symbols-outlined text-[20px] group-hover/btn:scale-110 transition-transform">favorite</span>
+<span class="font-label-sm text-label-sm">2,108</span>
+</button>
+<span class="material-symbols-outlined text-outline-variant opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+</div>
+</div>
+</article>
+<!-- Card 4 -->
+<article class="glass-card rounded-2xl overflow-hidden flex flex-col h-full group">
+<div class="relative h-48 overflow-hidden bg-surface-container">
+<img alt="Abstract 3D rendering of wireframe mountains or waves, representing mathematical data visualization. The style is clean, modern, with a pale blue and white color palette." class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" data-alt="An abstract 3D rendering featuring wireframe mountains or fluid wave structures, representing complex mathematical data visualization. The color palette is restricted to serene pale blues (#E3F2FD) and pristine whites, creating a clean, modern, and intellectual aesthetic. Soft ambient lighting completes the light mode glassmorphic look." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCaAGQLlpXYUvXDqcFXzWC3BrrI3Wj2RxAoAH3IMsI_8ee8uMPRO6zPxzHIkXK0umUngf11lJ5MZuN9wb8aQOhBOhRxdIt2j1th08fbJX12iSyFZbP5nUHfG9TLFWo6vSi71ZtVYiTDHRtyeoSX0vtzeHfm8hW4GTsi7NdnjvcdNpWCT1dgoV2x_K1gm2D5gf4ClFYsHM8ZIb6DLRGMfV-sC-eKVckNAZPVdHl1Vlc2CbF--geNcJ2dZvnpcszs9KJAnS7SZBJau2yv"/>
+<div class="absolute top-3 left-3 flex gap-2">
+<span class="chip px-2 py-1 rounded-md font-label-sm text-label-sm text-on-secondary-container shadow-sm">几何学</span>
+<span class="bg-tertiary text-on-tertiary px-2 py-1 rounded-md font-label-sm text-label-sm shadow-sm">竞赛作品</span></div>
+<div class="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full flex items-center gap-1 text-primary border border-primary/20"><span class="material-symbols-outlined text-[18px] text-blue-500">military_tech</span><span class="font-label-sm text-label-sm font-bold">优胜奖</span></div></div>
+<div class="p-6 flex flex-col flex-grow">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-2 line-clamp-2">【流形可视化竞赛】高斯曲率在三维流形上的动态分布</h2>
+<p class="font-label-sm text-label-sm text-primary mb-3">作者：数据科学实验室</p>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-3 mb-6 flex-grow">通过交互式网页应用，实时计算并展示复杂曲面的高斯曲率分布。使用渐变色彩映射网格模型，帮助学习者直观理解微分几何中的核心概念。</p>
+<div class="flex justify-between items-center mt-auto pt-4 border-t border-outline-variant/20">
+<button class="flex items-center gap-1 text-on-surface-variant hover:text-error transition-colors group/btn">
+<span class="material-symbols-outlined text-[20px] group-hover/btn:scale-110 transition-transform">favorite</span>
+<span class="font-label-sm text-label-sm">856</span>
+</button>
+<span class="material-symbols-outlined text-outline-variant opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+</div>
+</div>
+</article>
+</div>
+<!-- Load More -->
+<div class="mt-12 flex justify-center">
+<button class="glass-card px-8 py-3 rounded-full font-label-sm text-label-sm text-primary hover:bg-primary-container transition-colors flex items-center gap-2">
+                    加载更多作品
+                    <span class="material-symbols-outlined text-[18px]">expand_more</span>
+</button>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-surface-container-lowest dark:bg-surface-container-high w-full py-12 px-margin-desktop flex flex-col md:flex-row justify-between items-center max-w-container-max mx-auto border-t border-outline-variant/30 flat">
+<div class="font-headline-sm text-headline-sm font-bold text-primary mb-6 md:mb-0">
+            MathAssociation
+        </div>
+<div class="flex flex-wrap justify-center gap-6 mb-6 md:mb-0">
+<a class="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md" href="#">隐私政策</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md" href="#">使用条款</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md" href="#">联系我们</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-body-md text-body-md" href="#">加入我们</a>
+</div>
+<div class="font-body-md text-body-md text-secondary dark:text-secondary-fixed text-center md:text-right">
+            © 2024 数学协会. Rigor in logic, beauty in patterns.
+        </div>
+</footer>
+</body></html>

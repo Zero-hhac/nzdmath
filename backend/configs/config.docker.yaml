@@ -1,0 +1,24 @@
+app:
+  name: math-top-backend
+  port: "8080"
+  mode: debug
+
+mysql:
+  host: mysql
+  port: 3306
+  user: root
+  password: "nzdmath123_db_password"
+  dbname: math_top
+
+redis:
+  host: redis
+  port: 6379
+  password: ""
+  db: 0
+
+jwt:
+  secret: "nzdmath_secure_jwt_token_secret_string"
+  expire_hours: 24
+
+storage:
+  upload_dir: ./storage/uploads

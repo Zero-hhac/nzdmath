@@ -1,0 +1,148 @@
+@import "tailwindcss";
+@import "katex/dist/katex.min.css";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --color-canvas: #fbfbfa;
+  --color-canvas-alt: #f7f6f3;
+  --color-surface: #ffffff;
+  
+  --color-charcoal: #111111;
+  --color-charcoal-muted: #333333;
+  --color-text-muted: #787774;
+  --color-text-faint: #a09f9c;
+  
+  --color-primary: #111111;
+  --color-primary-hover: #333333;
+  
+  --color-border: #eaeaea;
+  --color-border-strong: #d4d4d4;
+  
+  --color-pastel-blue: #e1f3fe;
+  --color-pastel-blue-text: #1f6c9f;
+  --color-pastel-red: #fdebec;
+  --color-pastel-red-text: #9f2f2d;
+  --color-pastel-green: #edf3ec;
+  --color-pastel-green-text: #346538;
+  --color-kinpaku: #d4af37;
+
+  --font-sans: "Geist Sans", "SF Pro Display", "Helvetica Neue", -apple-system, sans-serif;
+  --font-mono: "Geist Mono", "SF Mono", "JetBrains Mono", monospace;
+}
+
+@layer base {
+  html {
+    @apply min-h-full;
+  }
+
+  body {
+    @apply bg-canvas text-charcoal font-sans antialiased;
+    min-height: 100vh;
+  }
+
+  #root {
+    @apply min-h-screen flex flex-col;
+  }
+}
+
+@layer components {
+  /* Double-Bezel Architecture */
+  .doppel-shell {
+    @apply rounded-[2rem] bg-black/[0.02] p-2 ring-1 ring-black/[0.04];
+  }
+  
+  .doppel-core {
+    @apply rounded-[calc(2rem-0.5rem)] bg-surface shadow-[inset_0_1px_1px_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.02)];
+  }
+
+  .bento-card {
+    @apply rounded-xl border border-border bg-surface p-8 md:p-10 transition-shadow duration-300;
+  }
+  
+  .bento-card:hover {
+    @apply shadow-[0_4px_24px_rgba(0,0,0,0.04)];
+  }
+
+  /* Typography */
+  .display-title {
+    @apply text-5xl md:text-7xl font-light tracking-tight leading-[1.05];
+  }
+
+  .section-title {
+    @apply text-3xl md:text-5xl font-medium tracking-tight leading-[1.1];
+  }
+
+  .eyebrow {
+    @apply font-mono text-[0.7rem] uppercase tracking-[0.2em] font-medium text-text-muted;
+  }
+
+  /* CTAs */
+  .btn-primary {
+    @apply rounded-full bg-charcoal text-white px-6 py-3 font-medium transition-transform duration-[400ms] ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-charcoal-muted active:scale-[0.98] inline-flex items-center justify-center gap-2;
+  }
+
+  .btn-secondary {
+    @apply rounded-full bg-transparent border border-border text-charcoal px-6 py-3 font-medium transition-all duration-[400ms] ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-black/[0.02] active:scale-[0.98] inline-flex items-center justify-center gap-2;
+  }
+
+  .btn-icon-wrapper {
+    @apply w-8 h-8 rounded-full bg-white/20 flex items-center justify-center transition-transform duration-[400ms] ease-[cubic-bezier(0.16,1,0.3,1)];
+  }
+
+  .btn-primary:hover .btn-icon-wrapper {
+    @apply translate-x-1 scale-105;
+  }
+
+  /* Badges & Tags */
+  .tag-pastel-blue {
+    @apply rounded-full bg-pastel-blue text-pastel-blue-text px-3 py-1 text-[11px] uppercase tracking-[0.05em] font-medium;
+  }
+
+  .tag-pastel-red {
+    @apply rounded-full bg-pastel-red text-pastel-red-text px-3 py-1 text-[11px] uppercase tracking-[0.05em] font-medium;
+  }
+  
+  .tag-kinpaku {
+    @apply rounded-full bg-[#fcf8ed] text-[#8c6d14] px-3 py-1 text-[11px] uppercase tracking-[0.05em] font-medium border border-[#f2e1b3];
+  }
+
+  /* Overlays */
+  .glass-nav {
+    @apply bg-surface/80 backdrop-blur-xl border border-border/60 shadow-[0_4px_32px_rgba(0,0,0,0.03)];
+  }
+
+  /* Glass Card (Used heavily in modals and page containers) */
+  .glass-card {
+    @apply bg-white/95 backdrop-blur-xl border border-border/80 shadow-[0_12px_40px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] transition-all duration-300;
+  }
+  
+  .glass-card:hover {
+    @apply border-border-strong/80 shadow-[0_16px_48px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.02)];
+  }
+
+  /* Sidebar/Dashboard Panels */
+  .sidebar-panel {
+    @apply bg-white/95 border border-border shadow-[0_4px_24px_rgba(0,0,0,0.02)] transition-shadow duration-300 rounded-[2rem] p-6 lg:p-8;
+  }
+
+  /* Inputs & Form Controls */
+  .app-input {
+    @apply bg-canvas-alt border border-border text-charcoal text-sm outline-none transition-all duration-200 placeholder:text-text-faint;
+  }
+  
+  .app-input:focus {
+    @apply border-charcoal bg-surface shadow-[0_0_0_3px_rgba(17,17,17,0.04)];
+  }
+}
+
+/* Custom resets for Markdown prose */
+.prose pre code {
+  background-color: transparent !important;
+  color: inherit !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  font-weight: inherit !important;
+  border: none !important;
+}
+
+

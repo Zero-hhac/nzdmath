@@ -1,0 +1,10 @@
+.git
+.idea
+.DS_Store
+*.log
+storage/uploads/*
+!storage/uploads/.gitkeep
+storage/logs/*
+server
+backend
+nzdmath

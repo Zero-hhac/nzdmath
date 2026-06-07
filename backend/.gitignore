@@ -1,0 +1,29 @@
+# Build artifacts
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+storage/logs/
+
+# Secrets
+configs/config.yaml
+
+# Uploads
+storage/uploads/
+!storage/uploads/.gitkeep

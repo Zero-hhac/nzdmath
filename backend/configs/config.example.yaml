@@ -1,0 +1,24 @@
+app:
+  name: math-top-backend
+  port: "8080"          # 服务端口
+  mode: debug            # debug 或 release
+
+mysql:
+  host: 127.0.0.1
+  port: 3306
+  user: root
+  password: "your_password_here"
+  dbname: math_top
+
+redis:
+  host: 127.0.0.1
+  port: 6379
+  password: ""
+  db: 0
+
+jwt:
+  secret: "please-change-me-to-a-long-random-string"
+  expire_hours: 24
+
+storage:
+  upload_dir: ./storage/uploads
