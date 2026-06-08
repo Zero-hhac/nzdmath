@@ -14,7 +14,7 @@ frontend/yarn-error.log*
 backend/storage/uploads/*
 !backend/storage/uploads/.gitkeep
 backend/storage/logs/*
-backend/server
+# backend/server
 backend/backend
 backend/backend.log
 backend/configs/config.yaml
