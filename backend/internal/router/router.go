@@ -56,6 +56,10 @@ func NewEngine() *gin.Engine {
 		slog.Warn("创建默认管理员失败", "err", err)
 	}
 
+	// 注入初始测试数据
+	seedSvc := service.NewSeedService(db)
+	seedSvc.AutoSeed()
+
 	registerPublicRoutes(r, db, rdb, c)
 	registerAuthRoutes(r, db, rdb, c)
 	registerAdminRoutes(r, db, rdb, c)
