@@ -1,0 +1,62 @@
+server {
+    listen 80;
+    server_name yourdomain.com www.yourdomain.com; # 替换成您的真实域名
+
+    # 将所有 HTTP 请求重定向到 HTTPS
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name yourdomain.com www.yourdomain.com; # 替换成您的真实域名
+
+    # SSL 证书文件配置
+    ssl_certificate /etc/nginx/ssl/server.pem;     # 证书公钥文件路径 (容器内)
+    ssl_certificate_key /etc/nginx/ssl/server.key; # 证书私钥文件路径 (容器内)
+
+    # 推荐的 SSL 安全策略配置
+    ssl_session_timeout 5m;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE:ECDH:AES:HIGH:!NULL:!aNULL:!MD5:!ADH:!RC4;
+    ssl_prefer_server_ciphers on;
+
+    # Gzip 压缩
+    gzip on;
+    gzip_min_length 1k;
+    gzip_comp_level 6;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
+    gzip_vary on;
+
+    # 前端静态资源
+    location / {
+        root /usr/share/nginx/html;
+        index index.html index.htm;
+        try_files $uri $uri/ /index.html;  # 单页应用路由支持
+    }
+
+    # 后端 API 反向代理
+    location /api/ {
+        proxy_pass http://backend:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # 限制大文件上传大小
+        client_max_body_size 50m;
+        
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # 用户上传的资源代理
+    location /uploads/ {
+        proxy_pass http://backend:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        expires 7d;
+    }
+}

@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: math-top-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: nzdmath123_db_password # 生产环境建议修改此密码！
+      MYSQL_DATABASE: math_top
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "127.0.0.1:3307:3306" # 生产环境只允许本地连接以提高安全性
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pnzdmath123_db_password"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - math-top-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: math-top-redis
+    volumes:
+      - redis_data:/data
+    ports:
+      - "127.0.0.1:6380:6379" # 生产环境仅绑定本地以保护 Redis 安全
+    networks:
+      - math-top-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: math-top-backend
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      - APP_ENV=docker
+    volumes:
+      - ./backend/storage/uploads:/app/storage/uploads
+    expose:
+      - "8080"
+    networks:
+      - math-top-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: math-top-nginx
+    ports:
+      - "80:80"     # 监听 HTTP 端口以进行 HTTPS 重定向
+      - "443:443"   # 监听 HTTPS 端口
+    volumes:
+      # 挂载您的生产环境 nginx 配置（改名为 nginx.conf 并挂载覆盖容器内默认配置）
+      - ./nginx.ssl.conf:/etc/nginx/conf.d/default.conf
+      # 挂载宿主机上的 SSL 证书存放目录（将证书文件放至宿主机的 ./ssl 文件夹中）
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+    networks:
+      - math-top-network
+
+volumes:
+  mysql_data:
+  redis_data:
+
+networks:
+  math-top-network:
+    driver: bridge
