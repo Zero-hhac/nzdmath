@@ -66,6 +66,7 @@ func (s *AdminShowcaseService) Create(req dto.AdminCreateShowcaseRequest) (*mode
 		Competition: req.Competition,
 		Summary:     req.Summary,
 		CoverURL:    req.CoverURL,
+		H5URL:       req.H5URL,
 		Status:      req.Status,
 	}
 	if err := s.db.Create(&showcase).Error; err != nil {
@@ -82,6 +83,7 @@ func (s *AdminShowcaseService) Update(id uint, req dto.AdminUpdateShowcaseReques
 		"competition": req.Competition,
 		"summary":     req.Summary,
 		"cover_url":   req.CoverURL,
+		"h5_url":      req.H5URL,
 		"status":      req.Status,
 	})
 	if res.Error != nil {

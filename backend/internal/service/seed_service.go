@@ -144,6 +144,16 @@ func (s *SeedService) AutoSeed() {
 			Status:      1,
 			CoverURL:    "/uploads/resources/2026/06/1780658889292989000_奶龙.png",
 		},
+		{
+			Title:       "第四届理事会竞选大会 PPT 演示",
+			Author:      "数学爱好者协会",
+			Field:       "组织活动",
+			Competition: "理事会换届",
+			Summary:     "# 第四届理事会竞选大会\n\n数学爱好者协会第四届理事会竞选大会的 HTML5 在线演示，使用了 Reveal.js 进行现代化转场渲染，并具备毛玻璃拟态的学术风格。\n\n## 大会主题\n- **竞选原则**：公开性原则、公平性原则\n- **开放竞选岗位**：会长 (1名)、副会长 (2名)、四部正副部长 (各1名)\n- **竞选评分权重**：现场投票 (70%) + 老师评审 (30%)\n\n请在下方点击“在线播放演示”查看全屏 PPT 效果！",
+			Status:      1,
+			CoverURL:    "/uploads/resources/2026/06/1780658889292989000_奶龙.png",
+			H5URL:       "/uploads/h5_unified_light/index.html",
+		},
 	}
 	for i := range showcases {
 		if err := s.db.Create(&showcases[i]).Error; err != nil {

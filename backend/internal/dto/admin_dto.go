@@ -66,8 +66,10 @@ type AdminCreateShowcaseRequest struct {
 	Competition string `json:"competition"`
 	Summary     string `json:"summary"`
 	CoverURL    string `json:"cover_url"`
+	H5URL       string `json:"h5_url"`
 	Status      int    `json:"status" binding:"oneof=0 1"`
 }
+
 
 // AdminUpdateShowcaseRequest 更新作品
 type AdminUpdateShowcaseRequest = AdminCreateShowcaseRequest

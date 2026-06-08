@@ -10,6 +10,7 @@ type Showcase struct {
 	Competition string    `gorm:"type:varchar(100)" json:"competition"`              // 比赛名称
 	Summary     string    `gorm:"type:text" json:"summary"`                          // 作品简介
 	CoverURL    string    `gorm:"type:varchar(500)" json:"cover_url"`                // 封面图链接
+	H5URL       string    `gorm:"type:varchar(500)" json:"h5_url"`                   // H5网页链接
 	ViewCount   int       `gorm:"type:int;default:0" json:"view_count"`              // 浏览次数
 	Status      int       `gorm:"type:tinyint;default:1" json:"status"`              // 状态：1-发布，0-草稿
 	CreatedAt   time.Time `json:"created_at"`

@@ -385,7 +385,7 @@ function ContentEditor({ type, item, onClose, showToast }: { type: ContentType; 
       if (type === 'events') return { title: '', summary: '', content: '', category: '讲座', location: '', start_time: '', end_time: '', cover_url: '', status: 1, is_featured: false };
       if (type === 'news') return { title: '', summary: '', content: '', category: '通知', tag: '', cover_url: '', status: 1, is_featured: false };
       if (type === 'resources') return { title: '', summary: '', category: '课程笔记', cover_url: '', status: 1, is_featured: false };
-      if (type === 'showcases') return { title: '', author: '', field: '几何学', competition: '', summary: '', cover_url: '', status: 1 };
+      if (type === 'showcases') return { title: '', author: '', field: '几何学', competition: '', summary: '', cover_url: '', h5_url: '', status: 1 };
     }
     return item;
   });
@@ -480,6 +480,7 @@ function ContentEditor({ type, item, onClose, showToast }: { type: ContentType; 
             <Field label="作者"><input value={form.author || ''} onChange={(e) => setForm({ ...form, author: e.target.value })} className="app-input w-full rounded-xl py-2 px-3" /></Field>
             <Field label="领域"><input value={form.field || ''} onChange={(e) => setForm({ ...form, field: e.target.value })} className="app-input w-full rounded-xl py-2 px-3" /></Field>
             <Field label="赛事"><input value={form.competition || ''} onChange={(e) => setForm({ ...form, competition: e.target.value })} className="app-input w-full rounded-xl py-2 px-3" /></Field>
+            <Field label="H5 演示 URL"><input value={form.h5_url || ''} onChange={(e) => setForm({ ...form, h5_url: e.target.value })} className="app-input w-full rounded-xl py-2 px-3" placeholder="例如：/uploads/h5_unified_light/index.html" /></Field>
           </>}
           <Field label="摘要"><textarea value={form.summary || ''} onChange={(e) => setForm({ ...form, summary: e.target.value })} rows={3} className="app-input w-full rounded-xl py-2 px-3" /></Field>
           <Field label="封面图 URL"><input value={form.cover_url || ''} onChange={(e) => setForm({ ...form, cover_url: e.target.value })} className="app-input w-full rounded-xl py-2 px-3" /></Field>

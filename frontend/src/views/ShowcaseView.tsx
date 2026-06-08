@@ -12,6 +12,7 @@ type ShowcaseItem = {
   competition?: string;
   summary?: string;
   cover_url?: string;
+  h5_url?: string;
   view_count?: number;
   is_featured?: boolean;
 };
@@ -25,6 +26,7 @@ export const ShowcaseView: React.FC<ViewProps> = ({ navigate, openOverlay }) => 
   const [field, setField] = useState('全部领域');
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState('浏览最多');
+  const [activeH5Url, setActiveH5Url] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -135,6 +137,28 @@ export const ShowcaseView: React.FC<ViewProps> = ({ navigate, openOverlay }) => 
                         <span className="math-tag !bg-white/85">{item.field}</span>
                       </div>
                     )}
+                    {item.h5_url && (
+                      <div className="absolute right-4 top-4 z-10">
+                        <span className="math-tag !bg-amber-500 !text-white flex items-center gap-1 font-semibold shadow-sm">
+                          <span className="material-symbols-outlined text-[14px]">play_circle</span>
+                          H5 演示
+                        </span>
+                      </div>
+                    )}
+                    {item.h5_url && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveH5Url(item.h5_url || null);
+                        }}
+                        className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300 z-10"
+                      >
+                        <div className="flex items-center gap-2 rounded-full bg-white/90 px-5 py-2.5 text-sm font-semibold text-primary shadow-lg hover:scale-105 transition-all">
+                          <span className="material-symbols-outlined text-[18px]">play_circle</span>
+                          立即播放演示
+                        </div>
+                      </button>
+                    )}
                   </div>
 
                   <div className="flex flex-col gap-4 p-6">
@@ -156,6 +180,28 @@ export const ShowcaseView: React.FC<ViewProps> = ({ navigate, openOverlay }) => 
                                   <img src={item.cover_url} alt={item.title} className="h-full w-full object-cover" />
                                 </div>
                               )}
+                              {item.h5_url && (
+                                <div className="flex items-center justify-between p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20">
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600">
+                                      <span className="material-symbols-outlined text-[20px]">presentation_play</span>
+                                    </div>
+                                    <div>
+                                      <h4 className="text-sm font-semibold text-zinc-800">在线 H5 幻灯片演示</h4>
+                                      <p className="text-xs text-zinc-500">本作品包含交互式幻灯片网页。</p>
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={() => {
+                                      setActiveH5Url(item.h5_url || null);
+                                    }}
+                                    className="flex items-center gap-1 text-sm font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-full px-4 py-2 transition-all shadow-sm"
+                                  >
+                                    <span className="material-symbols-outlined text-[16px]">play_circle</span>
+                                    全屏播放
+                                  </button>
+                                </div>
+                              )}
                               <div className="rounded-[1.75rem] border border-white/70 bg-[#f7f9fb] p-6 max-h-[60vh] overflow-y-auto">
                                 <AsyncMarkdownViewer type="showcases" id={item.id} initialContent={item.summary} />
                               </div>
@@ -171,25 +217,36 @@ export const ShowcaseView: React.FC<ViewProps> = ({ navigate, openOverlay }) => 
                         <Heart className="w-4 h-4" />
                         {item.view_count || 0}
                       </button>
-                      <button
-                        onClick={() => openOverlay({
-                          title: '作品已归档',
-                          subtitle: item.title,
-                          content: (
-                            <div className="space-y-4">
-                              <div className="glass-card rounded-[1.5rem] p-5">
-                                <p className="text-sm font-medium leading-7 text-zinc-600">
-                                  该作品已纳入"作品档案馆"归档结构。
-                                </p>
+
+                      {item.h5_url ? (
+                        <button
+                          onClick={() => setActiveH5Url(item.h5_url || null)}
+                          className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white transition-all shadow-sm"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">play_circle</span>
+                          演示 PPT
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => openOverlay({
+                            title: '作品已归档',
+                            subtitle: item.title,
+                            content: (
+                              <div className="space-y-4">
+                                <div className="glass-card rounded-[1.5rem] p-5">
+                                  <p className="text-sm font-medium leading-7 text-zinc-600">
+                                    该作品已纳入"作品档案馆"归档结构。
+                                  </p>
+                                </div>
                               </div>
-                            </div>
-                          ),
-                          actions: [{ label: '知道了' }],
-                        })}
-                        className="text-primary"
-                      >
-                        <ArrowRight className="w-4 h-4" />
-                      </button>
+                            ),
+                            actions: [{ label: '知道了' }],
+                          })}
+                          className="text-primary"
+                        >
+                          <ArrowRight className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </article>
@@ -198,6 +255,24 @@ export const ShowcaseView: React.FC<ViewProps> = ({ navigate, openOverlay }) => 
           )}
         </section>
       </div>
+
+      {activeH5Url && (
+        <div className="fixed inset-0 z-[110] bg-[#1a1c1e]/95 backdrop-blur-md animate-in fade-in duration-300">
+          <button
+            onClick={() => setActiveH5Url(null)}
+            className="absolute top-6 right-6 z-[120] flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white/80 hover:text-white hover:bg-black/75 hover:scale-105 transition-all cursor-pointer shadow-lg"
+            aria-label="关闭播放"
+          >
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+          <iframe
+            src={activeH5Url}
+            className="w-full h-full border-none"
+            title="H5 Showcase Presentation"
+            allowFullScreen
+          />
+        </div>
+      )}
     </div>
   );
 };
