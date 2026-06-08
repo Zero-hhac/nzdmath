@@ -2,10 +2,8 @@ import React from 'react';
 import type { ViewProps } from '@/src/types/app';
 
 const members = [
-  { name: '张教授', role: '荣誉顾问', field: '微分几何', avatar: 'https://i.pravatar.cc/150?u=1' },
-  { name: '李明', role: '协会会长', field: '解析数论', avatar: 'https://i.pravatar.cc/150?u=2' },
-  { name: '王梦', role: '学术部长', field: '概率统计', avatar: 'https://i.pravatar.cc/150?u=3' },
-  { name: '刘洋', role: '宣传部长', field: '计算数学', avatar: 'https://i.pravatar.cc/150?u=4' }
+  { name: '刘老师', fullName: '刘响林', role: '指导老师', field: '学术指导', avatar: '刘', bg: 'from-blue-500 to-indigo-600 text-white' },
+  { name: '覃老师', fullName: '覃荣存', role: '指导老师', field: '学术指导', avatar: '覃', bg: 'from-emerald-400 to-teal-500 text-white' }
 ];
 
 export const AboutView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
@@ -57,15 +55,16 @@ export const AboutView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
            <h3 className="text-3xl font-serif text-primary">核心团队</h3>
            <p className="text-zinc-500 font-medium mt-2">引领理性的探索者</p>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-2 gap-8 max-w-xl mx-auto">
           {members.map((member, i) => (
             <div key={i} className="text-center space-y-4 group">
-              <div className="w-24 h-24 mx-auto rounded-full overflow-hidden border-2 border-white shadow-xl glass-card p-0 group-hover:scale-110 transition-transform duration-500">
-                <img src={member.avatar} alt={member.name} className="w-full h-full object-cover" />
+              <div className={`w-24 h-24 mx-auto rounded-full overflow-hidden border-2 border-white shadow-xl bg-gradient-to-br ${member.bg} flex items-center justify-center group-hover:scale-110 transition-all duration-500`}>
+                <span className="text-3xl font-serif font-bold">{member.avatar}</span>
               </div>
               <div>
                 <h4 className="font-serif text-lg text-primary">{member.name}</h4>
-                <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mb-1">{member.role}</div>
+                <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">{member.fullName}</p>
+                <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mb-1 mt-0.5">{member.role}</div>
                 <div className="math-tag !bg-white group-hover:border-primary transition-colors">{member.field}</div>
               </div>
             </div>
