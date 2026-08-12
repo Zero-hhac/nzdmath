@@ -1,6 +1,6 @@
 # Frontend
 frontend/node_modules/
-# frontend/dist/
+frontend/dist/
 frontend/.env
 frontend/.env.local
 frontend/.env.development.local
@@ -19,6 +19,7 @@ frontend/yarn-error.log*
 backend/storage/uploads/*
 !backend/storage/uploads/.gitkeep
 backend/storage/logs/*
+backend/uploads/
 backend/server
 backend/server.exe
 backend/backend
