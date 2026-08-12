@@ -142,7 +142,7 @@ function DashboardView({ onSwitch }: { onSwitch: (s: SubView) => void }) {
   const handleInvalidate = async () => {
     try {
       await api.adminInvalidateHomepage();
-      showToast('首页缓存已失效', 'success');
+      showToast('首页缓存已刷新', 'success');
     } catch (err: any) {
       showToast(err.message, 'error');
     }
