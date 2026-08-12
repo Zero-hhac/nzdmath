@@ -96,11 +96,35 @@ export const HomeView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
     { title: '作品档案', desc: '查看竞赛作品、可视化成果与优秀手稿。', action: '打开档案馆', tab: 'showcase' as const, icon: 'gallery_thumbnail', badge: null, tone: 'gold', kicker: 'ARCHIVE', meta: `${showcaseCount} 件作品`, mark: '04' },
   ];
 
-  const quickTones: Record<string, { card: string; icon: string; mark: string; arrow: string }> = {
-    blue: { card: '!border-pastel-blue !bg-pastel-blue/25 hover:!bg-pastel-blue/40', icon: 'bg-pastel-blue text-pastel-blue-text', mark: 'text-pastel-blue-text', arrow: 'bg-pastel-blue/50 text-pastel-blue-text group-hover:bg-pastel-blue group-hover:text-white' },
-    green: { card: '!border-pastel-green !bg-pastel-green/25 hover:!bg-pastel-green/40', icon: 'bg-pastel-green text-pastel-green-text', mark: 'text-pastel-green-text', arrow: 'bg-pastel-green/50 text-pastel-green-text group-hover:bg-pastel-green group-hover:text-white' },
-    red: { card: '!border-pastel-red !bg-pastel-red/20 hover:!bg-pastel-red/35', icon: 'bg-pastel-red text-pastel-red-text', mark: 'text-pastel-red-text', arrow: 'bg-pastel-red/50 text-pastel-red-text group-hover:bg-pastel-red group-hover:text-white' },
-    gold: { card: '!border-[#f2e1b3] !bg-[#fcf8ed] hover:!bg-[#faf0d7]', icon: 'bg-[#fcf8ed] text-[#8c6d14]', mark: 'text-[#8c6d14]', arrow: 'bg-[#f2e1b3] text-[#8c6d14] group-hover:bg-[#8c6d14] group-hover:text-white' },
+  const quickTones: Record<string, { card: string; icon: string; mark: string; arrow: string; edge: string }> = {
+    blue: {
+      card: '!border-2 !border-[#8bc2f7] !bg-[#eaf4ff] shadow-[0_12px_32px_rgba(37,99,235,0.12)] hover:!bg-[#dcecff] hover:shadow-[0_18px_44px_rgba(37,99,235,0.18)]',
+      icon: 'bg-[#3b82f6] text-white',
+      mark: 'text-[#1d4ed8]',
+      arrow: 'bg-[#bfdbfe] text-[#1d4ed8] group-hover:bg-[#2563eb] group-hover:text-white',
+      edge: 'bg-gradient-to-r from-[#2563eb] via-[#60a5fa] to-[#bfdbfe]',
+    },
+    green: {
+      card: '!border-2 !border-[#86d6a2] !bg-[#ecf9ef] shadow-[0_12px_32px_rgba(34,197,94,0.12)] hover:!bg-[#ddf4e4] hover:shadow-[0_18px_44px_rgba(34,197,94,0.18)]',
+      icon: 'bg-[#22c55e] text-white',
+      mark: 'text-[#15803d]',
+      arrow: 'bg-[#bbf7d0] text-[#15803d] group-hover:bg-[#16a34a] group-hover:text-white',
+      edge: 'bg-gradient-to-r from-[#16a34a] via-[#4ade80] to-[#bbf7d0]',
+    },
+    red: {
+      card: '!border-2 !border-[#f3a8a8] !bg-[#fef2f2] shadow-[0_12px_32px_rgba(239,68,68,0.12)] hover:!bg-[#fee2e2] hover:shadow-[0_18px_44px_rgba(239,68,68,0.18)]',
+      icon: 'bg-[#ef4444] text-white',
+      mark: 'text-[#b91c1c]',
+      arrow: 'bg-[#fecaca] text-[#b91c1c] group-hover:bg-[#dc2626] group-hover:text-white',
+      edge: 'bg-gradient-to-r from-[#dc2626] via-[#f87171] to-[#fecaca]',
+    },
+    gold: {
+      card: '!border-2 !border-[#e7c56b] !bg-[#fff9e8] shadow-[0_12px_32px_rgba(202,138,4,0.12)] hover:!bg-[#fdf0c9] hover:shadow-[0_18px_44px_rgba(202,138,4,0.18)]',
+      icon: 'bg-[#d97706] text-white',
+      mark: 'text-[#92400e]',
+      arrow: 'bg-[#fde68a] text-[#92400e] group-hover:bg-[#b45309] group-hover:text-white',
+      edge: 'bg-gradient-to-r from-[#b45309] via-[#f59e0b] to-[#fde68a]',
+    },
   };
 
   const featuredEntries = [];
@@ -335,12 +359,13 @@ export const HomeView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
               onClick={() => navigate(item.tab)}
               initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
-              whileHover={{ y: -4 }}
+              whileHover={{ y: -6, scale: 1.01 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.1, ease: [0.16, 1, 0.3, 1] }}
               className={`bento-card text-left group relative overflow-hidden ${quickTones[item.tone]?.card || ''}`}
             >
-              <span className={`pointer-events-none absolute -right-4 -bottom-9 select-none font-serif text-[7rem] font-semibold leading-none opacity-[0.07] ${quickTones[item.tone]?.mark || ''}`}>
+              <span className={`pointer-events-none absolute inset-x-0 top-0 h-1 ${quickTones[item.tone]?.edge || ''}`} />
+              <span className={`pointer-events-none absolute -right-4 -bottom-9 select-none font-serif text-[7rem] font-semibold leading-none opacity-[0.10] ${quickTones[item.tone]?.mark || ''}`}>
                 {item.mark}
               </span>
               {item.badge && (
@@ -353,7 +378,7 @@ export const HomeView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
                 <span className={`text-[10px] font-bold uppercase tracking-[0.2em] ${quickTones[item.tone]?.mark || 'text-text-muted'}`}>
                   {item.kicker}
                 </span>
-                <span className="rounded-full bg-white/60 px-2.5 py-1 text-[10px] font-semibold text-charcoal-muted backdrop-blur-sm">
+                <span className="rounded-full bg-white/85 px-2.5 py-1 text-[10px] font-semibold text-charcoal-muted shadow-sm">
                   {item.meta}
                 </span>
               </div>
@@ -364,7 +389,7 @@ export const HomeView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
                 {item.icon === 'gallery_thumbnail' && <GalleryVerticalEnd className="h-5 w-5" />}
               </div>
               <h3 className="relative text-xl font-semibold tracking-tight text-charcoal mb-3">{item.title}</h3>
-              <p className="relative min-h-[3.75rem] text-[13px] leading-relaxed text-text-muted">{item.desc}</p>
+              <p className="relative min-h-[3.75rem] text-[13px] leading-relaxed text-charcoal-muted">{item.desc}</p>
               <div className="relative mt-7 flex items-center justify-between border-t border-black/[0.06] pt-4">
                 <span className={`text-[13px] font-bold transition-colors ${quickTones[item.tone]?.mark || 'text-charcoal'}`}>
                   {item.action}
