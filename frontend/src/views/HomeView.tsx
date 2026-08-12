@@ -86,11 +86,18 @@ export const HomeView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
   }, [data]);
 
   const quickLinks = [
-    { title: '近期活动', desc: '查看本周讲座、工作坊与竞赛安排。', action: '前往活动中心', tab: 'events' as const, icon: 'event', badge: '新人起点' as (string | null), accent: true },
-    { title: '重点资源', desc: '快速进入讲义、模板、课程笔记与档案。', action: '浏览资源库', tab: 'resources' as const, icon: 'library_books', badge: null, accent: false },
-    { title: '会员服务', desc: '解锁内部存档、导师预约与协作入口。', action: '进入会员专区', tab: 'portal' as const, icon: 'workspace_premium', badge: null, accent: false },
-    { title: '作品档案', desc: '查看竞赛作品、可视化成果与优秀手稿。', action: '打开档案馆', tab: 'showcase' as const, icon: 'gallery_thumbnail', badge: null, accent: false },
+    { title: '近期活动', desc: '查看本周讲座、工作坊与竞赛安排。', action: '前往活动中心', tab: 'events' as const, icon: 'event', badge: '新人起点' as (string | null), accent: true, tone: 'blue' },
+    { title: '重点资源', desc: '快速进入讲义、模板、课程笔记与档案。', action: '浏览资源库', tab: 'resources' as const, icon: 'library_books', badge: null, accent: false, tone: 'green' },
+    { title: '会员服务', desc: '解锁内部存档、导师预约与协作入口。', action: '进入会员专区', tab: 'portal' as const, icon: 'workspace_premium', badge: null, accent: false, tone: 'red' },
+    { title: '作品档案', desc: '查看竞赛作品、可视化成果与优秀手稿。', action: '打开档案馆', tab: 'showcase' as const, icon: 'gallery_thumbnail', badge: null, accent: false, tone: 'gold' },
   ];
+
+  const quickTones: Record<string, { card: string; icon: string }> = {
+    blue: { card: '!border-pastel-blue !bg-pastel-blue/25 hover:!bg-pastel-blue/40', icon: 'bg-pastel-blue text-pastel-blue-text' },
+    green: { card: '!border-pastel-green !bg-pastel-green/25 hover:!bg-pastel-green/40', icon: 'bg-pastel-green text-pastel-green-text' },
+    red: { card: '!border-pastel-red !bg-pastel-red/20 hover:!bg-pastel-red/35', icon: 'bg-pastel-red text-pastel-red-text' },
+    gold: { card: '!border-[#f2e1b3] !bg-[#fcf8ed] hover:!bg-[#faf0d7]', icon: 'bg-[#fcf8ed] text-[#8c6d14]' },
+  };
 
   const featuredEntries = [];
   if (featuredEvents.length > 0) {
@@ -290,11 +297,11 @@ export const HomeView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
           </div>
 
           <div className="grid grid-cols-2 gap-3 mt-4">
-            <div className="bento-card !p-4 text-center">
+            <div className="bento-card !p-4 text-center !border-pastel-blue !bg-pastel-blue/20">
               <div className="text-2xl font-semibold text-charcoal tracking-tight">2022</div>
               <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted font-bold mt-1">协会成立</div>
             </div>
-            <div className="bento-card !p-4 text-center">
+            <div className="bento-card !p-4 text-center !border-pastel-green !bg-pastel-green/20">
               <div className="text-2xl font-semibold text-charcoal tracking-tight">4</div>
               <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted font-bold mt-1">核心职能部门</div>
             </div>
@@ -326,7 +333,7 @@ export const HomeView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.1, ease: [0.16, 1, 0.3, 1] }}
-              className={`bento-card text-left group relative ${item.accent ? '!border-accent/20 !bg-gradient-to-br !from-accent-soft/60 !to-surface' : ''}`}
+              className={`bento-card text-left group relative ${quickTones[item.tone]?.card || ''}`}
             >
               {item.badge && (
                   <span className="absolute top-5 right-5 inline-flex items-center gap-1 rounded-full bg-accent text-white px-2.5 py-0.5 text-[10px] font-semibold tracking-wide">
@@ -334,7 +341,7 @@ export const HomeView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
                   {item.badge}
                 </span>
               )}
-              <div className={`mb-6 w-10 h-10 rounded-lg flex items-center justify-center ${item.accent ? 'bg-accent text-white' : 'bg-black/[0.04] text-charcoal'}`}>
+              <div className={`mb-6 w-10 h-10 rounded-lg flex items-center justify-center ${quickTones[item.tone]?.icon || 'bg-black/[0.04] text-charcoal'}`}>
                 {item.icon === 'event' && <CalendarDays className="h-5 w-5" />}
                 {item.icon === 'library_books' && <BookMarked className="h-5 w-5" />}
                 {item.icon === 'workspace_premium' && <Award className="h-5 w-5" />}

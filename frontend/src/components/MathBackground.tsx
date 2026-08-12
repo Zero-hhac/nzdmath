@@ -2,17 +2,17 @@ import React from 'react';
 import { Formula } from '@/src/components/Formula';
 
 const backgroundFormulas = [
-  { expression: String.raw`\nabla \cdot \vec{F} = 0`, className: 'top-[9%] left-[3%] lg:left-[6%] rotate-[-3deg]' },
-  { expression: String.raw`f(x)=\int_{0}^{x}\sin(t^2)\,dt`, className: 'top-[14%] right-[3%] lg:right-[6%] rotate-[3deg]' },
-  { expression: String.raw`\sum_{n=1}^{\infty}\frac{1}{n^2}=\frac{\pi^2}{6}`, className: 'bottom-[12%] left-[3%] lg:left-[6%] rotate-[2deg]' },
-  { expression: String.raw`\mathbb{P}(A\mid B)=\frac{\mathbb{P}(A\cap B)}{\mathbb{P}(B)}`, className: 'bottom-[10%] right-[3%] lg:right-[6%] rotate-[-3deg]' },
+  { expression: String.raw`\nabla \cdot \vec{F} = 0`, className: 'top-[9%] left-[3%] lg:left-[6%] rotate-[-3deg] bg-pastel-blue/30 border-pastel-blue/50', delay: '0s' },
+  { expression: String.raw`f(x)=\int_{0}^{x}\sin(t^2)\,dt`, className: 'top-[14%] right-[3%] lg:right-[6%] rotate-[3deg] bg-pastel-green/25 border-pastel-green/50', delay: '1.6s' },
+  { expression: String.raw`\sum_{n=1}^{\infty}\frac{1}{n^2}=\frac{\pi^2}{6}`, className: 'bottom-[12%] left-[3%] lg:left-[6%] rotate-[2deg] bg-pastel-red/20 border-pastel-red/40', delay: '3.2s' },
+  { expression: String.raw`\mathbb{P}(A\mid B)=\frac{\mathbb{P}(A\cap B)}{\mathbb{P}(B)}`, className: 'bottom-[10%] right-[3%] lg:right-[6%] rotate-[-3deg] bg-kinpaku/15 border-kinpaku/40', delay: '4.8s' },
 ];
 
 export const MathBackground: React.FC = () => {
   return (
     <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-canvas">
-      {/* Subtle radial light spot for depth without breaking minimal aesthetic */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(31,42,68,0.04),_transparent_40%),radial-gradient(circle_at_80%_80%,_rgba(0,0,0,0.02),_transparent_50%)]" />
+      {/* Warm daylight and cool corner washes for a softer, less flat canvas */}
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,235,205,0.16),transparent_42%),linear-gradient(90deg,rgba(225,243,254,0.20),transparent_58%)]" />
 
       {/* Minimalist geometric lines */}
       <svg
@@ -31,11 +31,20 @@ export const MathBackground: React.FC = () => {
         {backgroundFormulas.map((item) => (
           <div
             key={item.expression}
-            className={`absolute rounded-full border border-border/70 bg-surface/70 backdrop-blur-sm px-3.5 py-1.5 text-xs text-text-faint opacity-60 ${item.className}`}
+            className={`absolute rounded-full border border-border/70 backdrop-blur-sm px-3.5 py-1.5 text-xs text-text-muted opacity-70 math-float ${item.className}`}
+            style={{ animationDelay: item.delay }}
           >
             <Formula expression={item.expression} />
           </div>
         ))}
+      </div>
+
+      {/* Oversized chalk-like symbols add editorial playfulness without distracting from content */}
+      <div className="absolute -right-8 top-[38%] hidden select-none font-serif text-[11rem] leading-none text-pastel-blue/25 lg:block math-float" style={{ animationDelay: '2.2s' }}>
+        π
+      </div>
+      <div className="absolute -left-10 bottom-[24%] hidden select-none font-serif text-[13rem] leading-none text-pastel-green/20 lg:block math-float" style={{ animationDelay: '4s' }}>
+        Σ
       </div>
     </div>
   );

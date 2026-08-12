@@ -37,7 +37,7 @@
   --radius-control: 9999px;
 
   --font-sans: "Hanken Grotesk", "Helvetica Neue", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
-  --font-serif: "Playfair Display", "Songti SC", "STSong", serif;
+  --font-serif: "Playfair Display", "LXGW WenKai", "Kaiti SC", "STKaiti", "KaiTi", "Songti SC", serif;
   --font-mono: "JetBrains Mono", "SF Mono", Consolas, monospace;
 }
 
@@ -49,8 +49,12 @@
   body {
     @apply bg-canvas text-charcoal font-sans antialiased;
     min-height: 100vh;
-    background-image: linear-gradient(rgba(31, 42, 68, 0.018) 1px, transparent 1px), linear-gradient(90deg, rgba(31, 42, 68, 0.018) 1px, transparent 1px);
-    background-size: 32px 32px;
+    background-image:
+      linear-gradient(180deg, rgba(255, 235, 205, 0.18), transparent 38%),
+      linear-gradient(90deg, rgba(225, 243, 254, 0.16), transparent 55%),
+      linear-gradient(rgba(31, 42, 68, 0.018) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(31, 42, 68, 0.018) 1px, transparent 1px);
+    background-size: auto, auto, 32px 32px, 32px 32px;
   }
 
   :focus-visible {
@@ -79,16 +83,17 @@
   }
   
   .bento-card:hover {
-    @apply shadow-[0_4px_24px_rgba(0,0,0,0.04)];
+    @apply shadow-[0_8px_28px_rgba(0,0,0,0.06)];
+    transform: translateY(-4px);
   }
 
   /* Typography */
   .display-title {
-    @apply text-4xl sm:text-5xl md:text-7xl font-light tracking-tight leading-[1.05];
+    @apply text-4xl sm:text-5xl md:text-7xl font-serif font-medium tracking-normal leading-[1.08] text-balance;
   }
 
   .section-title {
-    @apply text-3xl md:text-5xl font-medium tracking-[-0.04em] leading-[1.1] text-charcoal;
+    @apply text-3xl md:text-5xl font-serif font-semibold tracking-normal leading-[1.12] text-charcoal text-balance;
   }
 
   .eyebrow {
@@ -185,6 +190,7 @@
   
   .glass-card:hover {
     @apply border-border-strong/80 shadow-[0_16px_48px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.02)];
+    transform: translateY(-2px);
   }
 
   /* Sidebar/Dashboard Panels */
@@ -210,4 +216,17 @@
   border-radius: 0 !important;
   font-weight: inherit !important;
   border: none !important;
+}
+
+@keyframes float-y {
+  0%, 100% {
+    margin-top: 0;
+  }
+  50% {
+    margin-top: -10px;
+  }
+}
+
+.math-float {
+  animation: float-y 9s ease-in-out infinite;
 }
