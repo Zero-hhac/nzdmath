@@ -85,18 +85,22 @@ export const HomeView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
     return pool[0] || null;
   }, [data]);
 
+  const eventsCount = data?.recent_events?.length || data?.featured_events?.length || 0;
+  const resourcesCount = data?.featured_resources?.length || 0;
+  const showcaseCount = data?.recent_showcases?.length || 0;
+
   const quickLinks = [
-    { title: '近期活动', desc: '查看本周讲座、工作坊与竞赛安排。', action: '前往活动中心', tab: 'events' as const, icon: 'event', badge: '新人起点' as (string | null), accent: true, tone: 'blue' },
-    { title: '重点资源', desc: '快速进入讲义、模板、课程笔记与档案。', action: '浏览资源库', tab: 'resources' as const, icon: 'library_books', badge: null, accent: false, tone: 'green' },
-    { title: '会员服务', desc: '解锁内部存档、导师预约与协作入口。', action: '进入会员专区', tab: 'portal' as const, icon: 'workspace_premium', badge: null, accent: false, tone: 'red' },
-    { title: '作品档案', desc: '查看竞赛作品、可视化成果与优秀手稿。', action: '打开档案馆', tab: 'showcase' as const, icon: 'gallery_thumbnail', badge: null, accent: false, tone: 'gold' },
+    { title: '近期活动', desc: '查看本周讲座、工作坊与竞赛安排。', action: '前往活动中心', tab: 'events' as const, icon: 'event', badge: '新人起点' as (string | null), tone: 'blue', kicker: 'EVENTS', meta: `${eventsCount} 场进行中`, mark: '01' },
+    { title: '重点资源', desc: '快速进入讲义、模板、课程笔记与档案。', action: '浏览资源库', tab: 'resources' as const, icon: 'library_books', badge: null, tone: 'green', kicker: 'RESOURCES', meta: resourcesCount > 0 ? `${resourcesCount} 份精选` : '资源存档', mark: '02' },
+    { title: '会员服务', desc: '解锁内部存档、导师预约与协作入口。', action: '进入会员专区', tab: 'portal' as const, icon: 'workspace_premium', badge: null, tone: 'red', kicker: 'MEMBER', meta: '登录后解锁', mark: '03' },
+    { title: '作品档案', desc: '查看竞赛作品、可视化成果与优秀手稿。', action: '打开档案馆', tab: 'showcase' as const, icon: 'gallery_thumbnail', badge: null, tone: 'gold', kicker: 'ARCHIVE', meta: `${showcaseCount} 件作品`, mark: '04' },
   ];
 
-  const quickTones: Record<string, { card: string; icon: string }> = {
-    blue: { card: '!border-pastel-blue !bg-pastel-blue/25 hover:!bg-pastel-blue/40', icon: 'bg-pastel-blue text-pastel-blue-text' },
-    green: { card: '!border-pastel-green !bg-pastel-green/25 hover:!bg-pastel-green/40', icon: 'bg-pastel-green text-pastel-green-text' },
-    red: { card: '!border-pastel-red !bg-pastel-red/20 hover:!bg-pastel-red/35', icon: 'bg-pastel-red text-pastel-red-text' },
-    gold: { card: '!border-[#f2e1b3] !bg-[#fcf8ed] hover:!bg-[#faf0d7]', icon: 'bg-[#fcf8ed] text-[#8c6d14]' },
+  const quickTones: Record<string, { card: string; icon: string; mark: string; arrow: string }> = {
+    blue: { card: '!border-pastel-blue !bg-pastel-blue/25 hover:!bg-pastel-blue/40', icon: 'bg-pastel-blue text-pastel-blue-text', mark: 'text-pastel-blue-text', arrow: 'bg-pastel-blue/50 text-pastel-blue-text group-hover:bg-pastel-blue group-hover:text-white' },
+    green: { card: '!border-pastel-green !bg-pastel-green/25 hover:!bg-pastel-green/40', icon: 'bg-pastel-green text-pastel-green-text', mark: 'text-pastel-green-text', arrow: 'bg-pastel-green/50 text-pastel-green-text group-hover:bg-pastel-green group-hover:text-white' },
+    red: { card: '!border-pastel-red !bg-pastel-red/20 hover:!bg-pastel-red/35', icon: 'bg-pastel-red text-pastel-red-text', mark: 'text-pastel-red-text', arrow: 'bg-pastel-red/50 text-pastel-red-text group-hover:bg-pastel-red group-hover:text-white' },
+    gold: { card: '!border-[#f2e1b3] !bg-[#fcf8ed] hover:!bg-[#faf0d7]', icon: 'bg-[#fcf8ed] text-[#8c6d14]', mark: 'text-[#8c6d14]', arrow: 'bg-[#f2e1b3] text-[#8c6d14] group-hover:bg-[#8c6d14] group-hover:text-white' },
   };
 
   const featuredEntries = [];
@@ -331,27 +335,43 @@ export const HomeView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
               onClick={() => navigate(item.tab)}
               initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
+              whileHover={{ y: -4 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.1, ease: [0.16, 1, 0.3, 1] }}
-              className={`bento-card text-left group relative ${quickTones[item.tone]?.card || ''}`}
+              className={`bento-card text-left group relative overflow-hidden ${quickTones[item.tone]?.card || ''}`}
             >
+              <span className={`pointer-events-none absolute -right-4 -bottom-9 select-none font-serif text-[7rem] font-semibold leading-none opacity-[0.07] ${quickTones[item.tone]?.mark || ''}`}>
+                {item.mark}
+              </span>
               {item.badge && (
-                  <span className="absolute top-5 right-5 inline-flex items-center gap-1 rounded-full bg-accent text-white px-2.5 py-0.5 text-[10px] font-semibold tracking-wide">
+                  <span className="absolute top-5 right-5 z-10 inline-flex items-center gap-1 rounded-full bg-accent text-white px-2.5 py-0.5 text-[10px] font-semibold tracking-wide">
                   <Sparkles className="h-3 w-3" />
                   {item.badge}
                 </span>
               )}
-              <div className={`mb-6 w-10 h-10 rounded-lg flex items-center justify-center ${quickTones[item.tone]?.icon || 'bg-black/[0.04] text-charcoal'}`}>
+              <div className="relative flex items-center justify-between gap-3">
+                <span className={`text-[10px] font-bold uppercase tracking-[0.2em] ${quickTones[item.tone]?.mark || 'text-text-muted'}`}>
+                  {item.kicker}
+                </span>
+                <span className="rounded-full bg-white/60 px-2.5 py-1 text-[10px] font-semibold text-charcoal-muted backdrop-blur-sm">
+                  {item.meta}
+                </span>
+              </div>
+              <div className={`relative mb-6 mt-6 w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm ${quickTones[item.tone]?.icon || 'bg-black/[0.04] text-charcoal'}`}>
                 {item.icon === 'event' && <CalendarDays className="h-5 w-5" />}
                 {item.icon === 'library_books' && <BookMarked className="h-5 w-5" />}
                 {item.icon === 'workspace_premium' && <Award className="h-5 w-5" />}
                 {item.icon === 'gallery_thumbnail' && <GalleryVerticalEnd className="h-5 w-5" />}
               </div>
-              <h3 className="text-xl font-medium tracking-tight text-charcoal mb-3">{item.title}</h3>
-              <p className="text-[13px] leading-relaxed text-text-muted">{item.desc}</p>
-              <div className="mt-8 inline-flex items-center gap-2 text-[13px] font-bold text-charcoal group-hover:text-accent transition-colors">
-                {item.action}
-                <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              <h3 className="relative text-xl font-semibold tracking-tight text-charcoal mb-3">{item.title}</h3>
+              <p className="relative min-h-[3.75rem] text-[13px] leading-relaxed text-text-muted">{item.desc}</p>
+              <div className="relative mt-7 flex items-center justify-between border-t border-black/[0.06] pt-4">
+                <span className={`text-[13px] font-bold transition-colors ${quickTones[item.tone]?.mark || 'text-charcoal'}`}>
+                  {item.action}
+                </span>
+                <span className={`flex h-8 w-8 items-center justify-center rounded-full transition-all duration-300 ${quickTones[item.tone]?.arrow || 'bg-black/[0.05]'}`}>
+                  <ArrowUpRight className="h-4 w-4" />
+                </span>
               </div>
             </motion.button>
           ))}
