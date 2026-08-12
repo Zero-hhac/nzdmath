@@ -30,15 +30,15 @@ export const Footer: React.FC<FooterProps> = ({ openOverlay }) => {
   ];
 
   return (
-    <footer className="w-full bg-white/40 backdrop-blur-lg border-t border-white/20">
-      <div className="flex flex-col md:flex-row justify-between items-center py-12 px-6 md:px-10 gap-8 max-w-7xl mx-auto opacity-80 hover:opacity-100 transition-opacity duration-300">
-        <div className="font-serif text-xl text-primary font-bold">数学协会</div>
+    <footer className="w-full bg-surface/70 backdrop-blur-lg border-t border-border">
+      <div className="flex flex-col md:flex-row justify-between items-center py-10 px-6 md:px-10 gap-7 max-w-6xl mx-auto">
+        <div className="text-lg text-charcoal font-bold tracking-tight">数学协会</div>
         
         <div className="text-sm text-zinc-500 text-center md:text-left font-medium">
-          © 2024 大学数学协会 版权所有 | 探索逻辑之律
+          © {new Date().getFullYear()} 数学爱好者协会 · 探索逻辑之律
         </div>
         
-        <div className="flex space-x-6">
+        <div className="flex flex-wrap justify-center gap-x-5 gap-y-3">
           {footerLinks.map((item) => (
             <button
               key={item.label}
@@ -48,7 +48,7 @@ export const Footer: React.FC<FooterProps> = ({ openOverlay }) => {
                   subtitle: '平台说明',
                   content: (
                     <div className="space-y-5">
-                      <div className="rounded-[1.75rem] border border-white/70 bg-[#f7f9fb] p-6">
+                      <div className="rounded-[1.75rem] border border-border bg-canvas-alt p-6">
                         <p className="text-sm font-medium leading-7 text-zinc-600">{item.body}</p>
                       </div>
                       <div className="grid gap-4 md:grid-cols-3">

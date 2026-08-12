@@ -7,6 +7,7 @@ export type TabId =
   | 'showcase'
   | 'news'
   | 'about'
+  | 'chat'
   | 'admin'
   | 'portal';
 

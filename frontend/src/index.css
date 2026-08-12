@@ -26,8 +26,19 @@
   --color-pastel-green-text: #346538;
   --color-kinpaku: #d4af37;
 
-  --font-sans: "Geist Sans", "SF Pro Display", "Helvetica Neue", -apple-system, sans-serif;
-  --font-mono: "Geist Mono", "SF Mono", "JetBrains Mono", monospace;
+  --color-accent: #1f2a44;
+  --color-accent-soft: #f1f3f8;
+  --color-accent-text-on: #ffffff;
+  --color-accent-ring: rgba(31, 42, 68, 0.18);
+
+  --radius-card: 1rem;
+  --radius-panel: 1.5rem;
+  --radius-hero: 2rem;
+  --radius-control: 9999px;
+
+  --font-sans: "Hanken Grotesk", "Helvetica Neue", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-serif: "Playfair Display", "Songti SC", "STSong", serif;
+  --font-mono: "JetBrains Mono", "SF Mono", Consolas, monospace;
 }
 
 @layer base {
@@ -38,25 +49,33 @@
   body {
     @apply bg-canvas text-charcoal font-sans antialiased;
     min-height: 100vh;
+    background-image: linear-gradient(rgba(31, 42, 68, 0.018) 1px, transparent 1px), linear-gradient(90deg, rgba(31, 42, 68, 0.018) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-charcoal);
+    outline-offset: 2px;
   }
 
   #root {
     @apply min-h-screen flex flex-col;
   }
+
 }
 
 @layer components {
   /* Double-Bezel Architecture */
   .doppel-shell {
-    @apply rounded-[2rem] bg-black/[0.02] p-2 ring-1 ring-black/[0.04];
+    @apply rounded-[var(--radius-hero)] bg-black/[0.02] p-2 ring-1 ring-black/[0.04];
   }
   
   .doppel-core {
-    @apply rounded-[calc(2rem-0.5rem)] bg-surface shadow-[inset_0_1px_1px_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.02)];
+    @apply rounded-[calc(var(--radius-hero)-0.5rem)] bg-surface shadow-[inset_0_1px_1px_rgba(255,255,255,1),0_2px_8px_rgba(0,0,0,0.02)];
   }
 
   .bento-card {
-    @apply rounded-xl border border-border bg-surface p-8 md:p-10 transition-shadow duration-300;
+    @apply rounded-[var(--radius-panel)] border border-border bg-surface p-6 md:p-8 transition-all duration-300;
   }
   
   .bento-card:hover {
@@ -65,24 +84,72 @@
 
   /* Typography */
   .display-title {
-    @apply text-5xl md:text-7xl font-light tracking-tight leading-[1.05];
+    @apply text-4xl sm:text-5xl md:text-7xl font-light tracking-tight leading-[1.05];
   }
 
   .section-title {
-    @apply text-3xl md:text-5xl font-medium tracking-tight leading-[1.1];
+    @apply text-3xl md:text-5xl font-medium tracking-[-0.04em] leading-[1.1] text-charcoal;
   }
 
   .eyebrow {
     @apply font-mono text-[0.7rem] uppercase tracking-[0.2em] font-medium text-text-muted;
   }
 
+  .page-intro {
+    @apply rounded-[var(--radius-hero)] border border-border bg-surface p-6 md:p-8;
+  }
+
+  .section-kicker {
+    @apply font-mono text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-accent;
+  }
+
+  .section-subtitle {
+    @apply text-sm md:text-base font-medium leading-relaxed text-text-muted;
+  }
+
+  .surface-subtle {
+    @apply bg-canvas-alt border border-border;
+  }
+
+  .math-tag {
+    @apply inline-flex rounded-full border border-border bg-canvas-alt px-3 py-1 text-[11px] font-semibold text-charcoal-muted;
+  }
+
+  .panel-inset {
+    @apply rounded-2xl border border-border bg-canvas-alt p-5;
+  }
+
+  .text-primary { color: var(--color-primary); }
+  .text-soft-body { color: var(--color-text-muted); }
+  .text-soft-strong { color: var(--color-charcoal-muted); }
+  .bg-primary { background-color: var(--color-primary); }
+  .bg-primary-container { background-color: var(--color-accent-soft); }
+
   /* CTAs */
   .btn-primary {
     @apply rounded-full bg-charcoal text-white px-6 py-3 font-medium transition-transform duration-[400ms] ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-charcoal-muted active:scale-[0.98] inline-flex items-center justify-center gap-2;
   }
 
+  .btn-accent {
+    @apply rounded-full bg-charcoal text-white px-6 py-3 font-medium transition-all duration-[400ms] ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-charcoal-muted active:scale-[0.98] inline-flex items-center justify-center gap-2 shadow-[0_4px_18px_rgba(17,17,17,0.14)];
+  }
+
   .btn-secondary {
-    @apply rounded-full bg-transparent border border-border text-charcoal px-6 py-3 font-medium transition-all duration-[400ms] ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-black/[0.02] active:scale-[0.98] inline-flex items-center justify-center gap-2;
+    @apply rounded-full bg-transparent border border-border text-charcoal px-6 py-3 font-medium transition-all duration-[400ms] ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-black/[0.03] hover:border-border-strong active:scale-[0.98] inline-flex items-center justify-center gap-2;
+  }
+
+  .btn-ghost {
+    @apply rounded-full bg-accent-soft text-accent px-5 py-2.5 text-sm font-medium transition-all duration-200 hover:bg-[#e6ebf3] active:scale-[0.98] inline-flex items-center justify-center gap-2;
+  }
+
+  /* Accent utilities */
+  .text-accent { color: var(--color-accent); }
+  .bg-accent-soft { background-color: var(--color-accent-soft); }
+  .ring-accent { box-shadow: 0 0 0 3px var(--color-accent-ring); }
+
+  /* Eyebrow tag in accent color */
+  .eyebrow-accent {
+    @apply inline-flex items-center gap-1.5 rounded-full bg-accent-soft text-accent px-3 py-1 text-[11px] font-semibold tracking-[0.08em] uppercase;
   }
 
   .btn-icon-wrapper {
@@ -113,7 +180,7 @@
 
   /* Glass Card (Used heavily in modals and page containers) */
   .glass-card {
-    @apply bg-white/95 backdrop-blur-xl border border-border/80 shadow-[0_12px_40px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)] transition-all duration-300;
+    @apply bg-white/95 backdrop-blur-xl border border-border shadow-[0_12px_40px_rgba(31,42,68,0.045),0_1px_2px_rgba(0,0,0,0.02)] transition-all duration-300;
   }
   
   .glass-card:hover {
@@ -122,7 +189,7 @@
 
   /* Sidebar/Dashboard Panels */
   .sidebar-panel {
-    @apply bg-white/95 border border-border shadow-[0_4px_24px_rgba(0,0,0,0.02)] transition-shadow duration-300 rounded-[2rem] p-6 lg:p-8;
+    @apply bg-white/95 border border-border shadow-[0_4px_24px_rgba(31,42,68,0.025)] transition-shadow duration-300 rounded-[var(--radius-hero)] p-6 lg:p-8;
   }
 
   /* Inputs & Form Controls */
@@ -144,5 +211,3 @@
   font-weight: inherit !important;
   border: none !important;
 }
-
-

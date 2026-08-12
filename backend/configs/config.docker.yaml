@@ -7,7 +7,7 @@ mysql:
   host: mysql
   port: 3306
   user: root
-  password: "nzdmath123_db_password"
+  password: "" # 通过 MYSQL_PASSWORD 环境变量注入
   dbname: math_top
 
 redis:
@@ -17,7 +17,7 @@ redis:
   db: 0
 
 jwt:
-  secret: "nzdmath_secure_jwt_token_secret_string"
+  secret: "" # 通过 JWT_SECRET 环境变量注入
   expire_hours: 24
 
 storage:

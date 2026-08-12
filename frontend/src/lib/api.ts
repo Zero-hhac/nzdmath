@@ -55,6 +55,33 @@ export const api = {
   deleteComment: (id: number) => request(`/comments/${id}`, { method: 'DELETE' }),
   toggleCommentLike: (id: number) => request(`/comments/${id}/like`, { method: 'POST' }),
 
+  chatJoin: () => request<{ online_count: number }>('/chat/join', { method: 'POST' }),
+  chatLeave: () => request('/chat/leave', { method: 'POST' }),
+  getChatMessages: (options: { afterId?: number; beforeId?: number; limit?: number; afterDeleteMs?: number } = {}, signal?: AbortSignal) => {
+    const params = new URLSearchParams();
+    if (options.afterId) params.set('after_id', String(options.afterId));
+    if (options.beforeId) params.set('before_id', String(options.beforeId));
+    params.set('limit', String(options.limit || 50));
+    if (options.afterDeleteMs) params.set('after_delete_ms', String(options.afterDeleteMs));
+    const query = params.toString();
+    return request<{
+      messages: any[];
+      online_count: number;
+      deleted_ids?: number[];
+      deleted_at_ms?: number;
+      has_more?: boolean;
+      next_before_id?: number;
+    }>(`/chat/messages?${query}`, { signal });
+  },
+  sendChatText: (content: string) =>
+    request('/chat/messages', {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    }),
+  sendChatFile: (formData: FormData) =>
+    request('/chat/messages/file', { method: 'POST', body: formData }),
+  deleteChatMessage: (id: number) => request(`/chat/messages/${id}`, { method: 'DELETE' }),
+
   adminLogin: (username: string, password: string) =>
     request<{ token: string; admin: any }>('/admin/auth/login', {
       method: 'POST',
@@ -63,7 +90,12 @@ export const api = {
     }),
   adminLogout: () => request('/admin/auth/logout', { method: 'POST', tokenType: 'admin' }),
 
-  adminDashboard: () => request('/admin/dashboard', { tokenType: 'admin' }),
+  adminDashboard: () => request<{
+    counts: any;
+    today_activity: { pv: number; uv: number; dau: number };
+    activity_trend: { dates: string[]; pv: number[]; uv: number[]; dau: number[] };
+    total_activity: { pv: number; uv: number };
+  }>('/admin/dashboard', { tokenType: 'admin' }),
   adminInvalidateHomepage: () => request('/admin/homepage/invalidate', { method: 'POST', tokenType: 'admin' }),
 
   adminListEvents: (params?: Record<string, string>) =>
@@ -98,9 +130,6 @@ export const api = {
   adminDeleteResource: (id: number) =>
     request(`/admin/resources/${id}`, { method: 'DELETE', tokenType: 'admin' }),
 
-  uploadResource: (data: FormData) =>
-    request('/resources/upload', { method: 'POST', body: data }),
-
   adminListShowcases: (params?: Record<string, string>) =>
     request('/admin/showcases' + (params ? '?' + new URLSearchParams(params) : ''), { tokenType: 'admin' }),
   adminGetShowcase: (id: number) => request(`/admin/showcases/${id}`, { tokenType: 'admin' }),
@@ -126,6 +155,11 @@ export const api = {
     request(`/admin/comments/${id}`, { method: 'DELETE', tokenType: 'admin' }),
   adminSetCommentStatus: (id: number, status: 0 | 1) =>
     request(`/admin/comments/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }), tokenType: 'admin' }),
+
+  adminListChatMessages: (params?: Record<string, string>) =>
+    request('/admin/chat/messages' + (params ? '?' + new URLSearchParams(params) : ''), { tokenType: 'admin' }),
+  adminDeleteChatMessage: (id: number) =>
+    request(`/admin/chat/messages/${id}`, { method: 'DELETE', tokenType: 'admin' }),
 };
 
 export { tokenStore };

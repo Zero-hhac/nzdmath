@@ -3,10 +3,13 @@ package service
 import (
 	"context"
 	"errors"
+	"log/slog"
+	"math-top/internal/config"
 	"math-top/internal/dto"
 	"math-top/internal/middleware"
 	"math-top/internal/model"
 	"math-top/internal/utils"
+	"os"
 	"strconv"
 	"time"
 
@@ -33,7 +36,18 @@ func (s *AdminService) EnsureDefaultAdmin() error {
 	if count > 0 {
 		return nil
 	}
-	hashed, err := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
+	password := os.Getenv("ADMIN_INITIAL_PASSWORD")
+	if password == "" {
+		if config.GlobalConfig.App.Mode == "release" {
+			return errors.New("生产环境必须通过 ADMIN_INITIAL_PASSWORD 设置初始管理员密码")
+		}
+		password = "admin123"
+		slog.Warn("开发模式创建默认管理员 admin/admin123，生产环境请设置 ADMIN_INITIAL_PASSWORD")
+	}
+	if len(password) < 6 {
+		return errors.New("初始管理员密码长度不能少于 6 位")
+	}
+	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
@@ -203,6 +217,25 @@ func (s *AdminService) GetDashboard() (*dto.AdminDashboardResponse, error) {
 		UV:  uvToday,
 		DAU: dauToday,
 	}
+
+	// Global PV uses a counter and global UV uses one HyperLogLog. Unlike
+	// daily UV, the global set does not double-count visitors across days.
+	totalPV, err := s.rdb.Get(ctx, "dau:pv:all").Int64()
+	if err == redis.Nil {
+		var archivedPV int64
+		s.db.Model(&model.DailyMetric{}).Select("COALESCE(SUM(pv), 0)").Scan(&archivedPV)
+		totalPV = archivedPV + pvToday
+		_ = s.rdb.SetNX(ctx, "dau:pv:all", totalPV, 0).Err()
+	}
+	totalUV := s.rdb.PFCount(ctx, "dau:ip:all").Val()
+	if totalUV == 0 {
+		// Keep the current day's visitors visible immediately after deployment.
+		if todayUV := s.rdb.PFCount(ctx, "dau:ip:"+todayStr).Val(); todayUV > 0 {
+			s.rdb.PFMerge(ctx, "dau:ip:all", "dau:ip:"+todayStr)
+			totalUV = s.rdb.PFCount(ctx, "dau:ip:all").Val()
+		}
+	}
+	resp.TotalActivity = dto.TotalActivity{PV: totalPV, UV: totalUV}
 
 	// 6. 构建 7 天活跃与流量趋势数据（6天历史归档 + 1天今日实时）
 	resp.Activity = dto.ActivityTrend{

@@ -3,12 +3,13 @@ package service
 import (
 	"errors"
 	"fmt"
+	"io"
 	"math-top/internal/config"
 	"math-top/internal/dto"
 	"math-top/internal/model"
+	"mime/multipart"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -17,6 +18,15 @@ import (
 
 type ResourceService struct {
 	db *gorm.DB
+}
+
+const ResourceMaxFileSize = 50 * 1024 * 1024
+
+var allowedResourceExts = map[string]bool{
+	".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true,
+	".pdf": true, ".doc": true, ".docx": true, ".xls": true, ".xlsx": true,
+	".ppt": true, ".pptx": true, ".zip": true, ".txt": true, ".md": true,
+	".py": true, ".js": true, ".ts": true, ".json": true, ".csv": true,
 }
 
 func NewResourceService(db *gorm.DB) *ResourceService {
@@ -84,12 +94,27 @@ func (s *ResourceService) GetForDownload(id uint64) (*model.Resource, error) {
 	if err := s.db.Where("id = ? AND status = ?", id, 1).First(&resource).Error; err != nil {
 		return nil, err
 	}
+	if strings.HasPrefix(resource.FilePath, "/uploads/") {
+		uploadBase := config.GlobalConfig.Storage.UploadDir
+		if uploadBase == "" {
+			uploadBase = "./storage/uploads"
+		}
+		resource.FilePath = filepath.Join(uploadBase, strings.TrimPrefix(resource.FilePath, "/uploads/"))
+	}
 	s.db.Model(&model.Resource{}).Where("id = ?", id).
 		UpdateColumn("download_count", gorm.Expr("download_count + 1"))
 	return &resource, nil
 }
 
-func (s *ResourceService) UploadFile(fileName string, fileSize int64, fileType string, fileData []byte, coverURL string, summary string, title string, category string, uploaderID uint) error {
+func (s *ResourceService) UploadFile(file *multipart.FileHeader, coverURL string, summary string, title string, category string, uploaderID uint) (*model.Resource, error) {
+	if file == nil {
+		return nil, errors.New("上传文件不能为空")
+	}
+	ext, err := validateResourceUpload(file.Filename, file.Size)
+	if err != nil {
+		return nil, err
+	}
+
 	now := time.Now()
 	year := now.Format("2006")
 	month := now.Format("01")
@@ -100,28 +125,37 @@ func (s *ResourceService) UploadFile(fileName string, fileSize int64, fileType s
 	}
 	uploadDir := filepath.Join(uploadBase, "resources", year, month)
 	if err := os.MkdirAll(uploadDir, 0775); err != nil {
-		return fmt.Errorf("创建目录失败: %v", err)
+		return nil, fmt.Errorf("创建目录失败: %v", err)
 	}
 
-	ext := filepath.Ext(fileName)
-	uniqueName := fmt.Sprintf("%d_%s", now.UnixNano(), fileName)
-	savePath := filepath.Join(uploadDir, uniqueName)
-	if err := os.WriteFile(savePath, fileData, 0644); err != nil {
-		return fmt.Errorf("保存文件失败: %v", err)
-	}
+	saveName := fmt.Sprintf("%d_%d%s", now.UnixNano(), uploaderID, ext)
+	savePath := filepath.Join(uploadDir, saveName)
 
-	if uploaderID == 0 {
-		uploaderID = 1
+	src, err := file.Open()
+	if err != nil {
+		return nil, errors.New("打开文件失败")
+	}
+	defer src.Close()
+
+	dst, err := os.Create(savePath)
+	if err != nil {
+		return nil, errors.New("保存文件失败")
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, src); err != nil {
+		os.Remove(savePath)
+		return nil, errors.New("写入文件失败")
 	}
 
 	resource := model.Resource{
 		Title:      title,
 		Summary:    summary,
 		Category:   category,
-		FileName:   fileName,
+		FileName:   filepath.Base(file.Filename),
 		FilePath:   savePath,
-		FileSize:   fileSize,
-		FileType:   fileType,
+		FileSize:   file.Size,
+		FileType:   file.Header.Get("Content-Type"),
 		FileExt:    strings.ToLower(ext),
 		CoverURL:   coverURL,
 		Status:     1,
@@ -130,9 +164,20 @@ func (s *ResourceService) UploadFile(fileName string, fileSize int64, fileType s
 
 	if err := s.db.Create(&resource).Error; err != nil {
 		os.Remove(savePath)
-		return fmt.Errorf("数据库记录创建失败: %v", err)
+		return nil, fmt.Errorf("数据库记录创建失败: %v", err)
 	}
-	return nil
+	return &resource, nil
+}
+
+func validateResourceUpload(fileName string, size int64) (string, error) {
+	if size > ResourceMaxFileSize {
+		return "", fmt.Errorf("文件不能超过 %dMB", ResourceMaxFileSize/(1024*1024))
+	}
+	ext := strings.ToLower(filepath.Ext(filepath.Base(fileName)))
+	if !allowedResourceExts[ext] {
+		return "", errors.New("不支持的文件格式")
+	}
+	return ext, nil
 }
 
 func (s *ResourceService) IncrementView(id uint) {
@@ -171,10 +216,3 @@ func (s *ResourceService) ListMyDownloads(userID uint, page, pageSize int) ([]mo
 	}
 	return logs, total, nil
 }
-
-func parseUint(s string) (uint64, error) {
-	return strconv.ParseUint(s, 10, 64)
-}
-
-var _ = parseUint
-var _ = errors.New

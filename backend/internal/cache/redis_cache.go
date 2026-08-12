@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"strconv"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -72,4 +73,103 @@ func (c *Cache) GetInt(ctx context.Context, key string) int {
 		return 0
 	}
 	return v
+}
+
+// SetInt stores a primitive int with a TTL.
+func (c *Cache) SetInt(ctx context.Context, key string, val int64, ttl time.Duration) {
+	if c == nil || c.rdb == nil {
+		return
+	}
+	if err := c.rdb.Set(ctx, key, val, ttl).Err(); err != nil {
+		slog.Warn("缓存写入失败", "key", key, "err", err)
+	}
+}
+
+// ZAdd adds a member with the given score to a sorted set.
+func (c *Cache) ZAdd(ctx context.Context, key, member string, score float64) bool {
+	if c == nil || c.rdb == nil {
+		return false
+	}
+	if err := c.rdb.ZAdd(ctx, key, redis.Z{Score: score, Member: member}).Err(); err != nil {
+		slog.Warn("ZAdd 失败", "key", key, "err", err)
+		return false
+	}
+	return true
+}
+
+// ZRangeByScore returns members with score in (min, max], ordered by score asc.
+func (c *Cache) ZRangeByScore(ctx context.Context, key string, min, max float64) []string {
+	if c == nil || c.rdb == nil {
+		return nil
+	}
+	val, err := c.rdb.ZRangeByScore(ctx, key, &redis.ZRangeBy{Min: strconv.FormatFloat(min, 'f', -1, 64), Max: strconv.FormatFloat(max, 'f', -1, 64)}).Result()
+	if err != nil {
+		return nil
+	}
+	return val
+}
+
+// ZRangeByRank returns members ordered by score, including both rank bounds.
+func (c *Cache) ZRangeByRank(ctx context.Context, key string, start, stop int64) ([]string, bool) {
+	if c == nil || c.rdb == nil {
+		return nil, false
+	}
+	val, err := c.rdb.ZRange(ctx, key, start, stop).Result()
+	if err != nil {
+		return nil, false
+	}
+	return val, true
+}
+
+// ZScore distinguishes a missing member from an unavailable Redis connection.
+func (c *Cache) ZScore(ctx context.Context, key, member string) (float64, bool, bool) {
+	if c == nil || c.rdb == nil {
+		return 0, false, false
+	}
+	val, err := c.rdb.ZScore(ctx, key, member).Result()
+	if err == redis.Nil {
+		return 0, false, true
+	}
+	if err != nil {
+		return 0, false, false
+	}
+	return val, true, true
+}
+
+// ZCount returns the number of members in the inclusive score range.
+func (c *Cache) ZCount(ctx context.Context, key string, min, max float64) (int64, bool) {
+	if c == nil || c.rdb == nil {
+		return 0, false
+	}
+	val, err := c.rdb.ZCount(ctx, key, strconv.FormatFloat(min, 'f', -1, 64), strconv.FormatFloat(max, 'f', -1, 64)).Result()
+	if err != nil {
+		return 0, false
+	}
+	return val, true
+}
+
+// ZRem removes members from a sorted set.
+func (c *Cache) ZRem(ctx context.Context, key string, members ...string) {
+	if c == nil || c.rdb == nil || len(members) == 0 {
+		return
+	}
+	if err := c.rdb.ZRem(ctx, key, members).Err(); err != nil {
+		slog.Warn("ZRem 失败", "key", key, "err", err)
+	}
+}
+
+// ZRemRangeByRank removes members by rank range.
+func (c *Cache) ZRemRangeByRank(ctx context.Context, key string, start, stop int64) {
+	if c == nil || c.rdb == nil {
+		return
+	}
+	c.rdb.ZRemRangeByRank(ctx, key, start, stop)
+}
+
+// ZRemRangeByScore removes members whose score is in [min, max].
+func (c *Cache) ZRemRangeByScore(ctx context.Context, key string, min, max float64) {
+	if c == nil || c.rdb == nil {
+		return
+	}
+	c.rdb.ZRemRangeByScore(ctx, key, strconv.FormatFloat(min, 'f', -1, 64), strconv.FormatFloat(max, 'f', -1, 64))
 }

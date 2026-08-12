@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import { X } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import type { OverlayConfig } from '@/src/types/app';
 
@@ -9,6 +10,15 @@ interface AppOverlayProps {
 }
 
 export const AppOverlay: React.FC<AppOverlayProps> = ({ overlay, onClose }) => {
+  useEffect(() => {
+    if (!overlay) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [overlay, onClose]);
+
   return (
     <AnimatePresence>
       {overlay && (
@@ -16,40 +26,43 @@ export const AppOverlay: React.FC<AppOverlayProps> = ({ overlay, onClose }) => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[100] bg-[#526069]/28 backdrop-blur-md p-4 md:p-10"
+          className="fixed inset-0 z-[100] bg-accent/20 backdrop-blur-md p-3 md:p-10"
           onClick={onClose}
         >
           <motion.div
             initial={{ opacity: 0, y: 24, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 16, scale: 0.98 }}
-            transition={{ duration: 0.24, ease: 'easeOut' }}
-            className="mx-auto flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-[2rem] border border-white/75 bg-white/92 shadow-[0_30px_120px_rgba(82,96,105,0.22)]"
-            onClick={(event) => event.stopPropagation()}
+          exit={{ opacity: 0, y: 16, scale: 0.98 }}
+          transition={{ duration: 0.24, ease: 'easeOut' }}
+          className="mx-auto flex max-h-[94vh] md:max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-[1.5rem] md:rounded-[2rem] border border-border bg-surface shadow-[0_30px_120px_rgba(31,42,68,0.2)]"
+          role="dialog"
+          aria-modal="true"
+          aria-label={overlay.title}
+          onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-6 border-b border-white/80 bg-[#fbfcfd] px-6 py-5 md:px-8">
+            <div className="flex items-start justify-between gap-6 border-b border-border bg-canvas-alt px-5 py-5 md:px-8">
               <div className="space-y-1">
                 <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-zinc-400">
                   Association Workspace
                 </div>
-                <h3 className="font-serif text-2xl text-primary">{overlay.title}</h3>
+                <h3 className="text-2xl font-medium tracking-tight text-charcoal">{overlay.title}</h3>
                 {overlay.subtitle && (
-                  <p className="text-sm font-medium text-[#586873]">{overlay.subtitle}</p>
+                  <p className="text-sm font-medium text-text-muted">{overlay.subtitle}</p>
                 )}
               </div>
               <button
                 onClick={onClose}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/70 bg-white/92 text-zinc-500 transition-all hover:text-primary"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surface text-text-muted transition-all hover:text-accent"
                 aria-label="关闭弹层"
               >
-                <span className="material-symbols-outlined text-[20px]">close</span>
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="overflow-y-auto bg-white/82 px-6 py-6 md:px-8 md:py-8">{overlay.content}</div>
+            <div className="overflow-y-auto bg-surface px-5 py-6 md:px-8 md:py-8">{overlay.content}</div>
 
             {overlay.actions && overlay.actions.length > 0 && (
-              <div className="flex flex-wrap justify-end gap-3 border-t border-white/80 bg-[#fbfcfd] px-6 py-5 md:px-8">
+              <div className="flex flex-wrap justify-end gap-3 border-t border-border bg-canvas-alt px-5 py-5 md:px-8">
                 {overlay.actions.map((action) => (
                   <button
                     key={action.label}

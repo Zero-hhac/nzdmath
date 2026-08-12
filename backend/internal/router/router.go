@@ -19,6 +19,10 @@ import (
 )
 
 func NewEngine() *gin.Engine {
+	if config.GlobalConfig == nil {
+		config.LoadConfig()
+	}
+
 	r := gin.New()
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
@@ -45,6 +49,8 @@ func NewEngine() *gin.Engine {
 		&model.DownloadLog{},
 		&model.Comment{},
 		&model.CommentLike{},
+		&model.ChatMessage{},
+		&model.ChatPresence{},
 		&model.DailyMetric{},
 	); err != nil {
 		slog.Error("数据库迁移失败", "err", err)
@@ -97,7 +103,7 @@ func registerPublicRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, c *cach
 
 	public := r.Group("/api/v1")
 	{
-		authLimit := middleware.RateLimitMiddleware(10, time.Minute)
+		authLimit := middleware.RateLimitMiddleware(rdb, 10, time.Minute)
 		public.POST("/auth/register", authLimit, userHandler.Register)
 		public.POST("/auth/login", authLimit, userHandler.Login)
 		public.POST("/auth/logout", userHandler.Logout)
@@ -110,6 +116,7 @@ func registerPublicRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, c *cach
 			pvKey := "dau:pv:" + today
 			rdb.Incr(ctx, pvKey)
 			rdb.Expire(ctx, pvKey, 48*time.Hour)
+			rdb.Incr(ctx, "dau:pv:all")
 
 			// 2. 统计 UV (IP 独立访客)
 			clientIP := c.ClientIP()
@@ -117,6 +124,7 @@ func registerPublicRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, c *cach
 				uvKey := "dau:ip:" + today
 				rdb.PFAdd(ctx, uvKey, clientIP)
 				rdb.Expire(ctx, uvKey, 48*time.Hour)
+				rdb.PFAdd(ctx, "dau:ip:all", clientIP)
 			}
 
 			// 3. 统计 DAU (会员独立活跃数)
@@ -139,6 +147,7 @@ func registerPublicRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, c *cach
 				dauKey := "dau:user:" + today
 				rdb.PFAdd(ctx, dauKey, userID)
 				rdb.Expire(ctx, dauKey, 48*time.Hour)
+				rdb.PFAdd(ctx, "dau:user:all", userID)
 			}
 
 			response.Success(c, nil)
@@ -154,7 +163,6 @@ func registerPublicRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, c *cach
 
 		public.GET("/resources", resourceHandler.List)
 		public.GET("/resources/:id", resourceHandler.Detail)
-		public.POST("/resources/upload", resourceHandler.Upload)
 		public.GET("/resources/download/:id", resourceHandler.Download)
 
 		public.GET("/showcases", showcaseHandler.List)
@@ -171,6 +179,7 @@ func registerAuthRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, c *cache.
 	resourceService := service.NewResourceService(db)
 	commentService := service.NewCommentService(db)
 	avatarService := service.NewAvatarService(db)
+	chatService := service.NewChatService(db, c)
 
 	userHandler := handler.NewUserHandler(userService)
 	memberHandler := handler.NewMemberHandler(memberService)
@@ -178,6 +187,7 @@ func registerAuthRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, c *cache.
 	resourceHandler := handler.NewResourceHandler(resourceService)
 	commentHandler := handler.NewCommentHandler(commentService)
 	avatarHandler := handler.NewAvatarHandler(avatarService)
+	chatHandler := handler.NewChatHandler(chatService)
 
 	auth := r.Group("/api/v1")
 	auth.Use(middleware.JWTAuthMiddleware(rdb))
@@ -197,6 +207,13 @@ func registerAuthRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, c *cache.
 		auth.POST("/comments", commentHandler.Create)
 		auth.DELETE("/comments/:id", commentHandler.Delete)
 		auth.POST("/comments/:id/like", commentHandler.ToggleLike)
+
+		auth.POST("/chat/join", chatHandler.Join)
+		auth.GET("/chat/messages", chatHandler.ListMessages)
+		auth.POST("/chat/messages", chatHandler.SendText)
+		auth.POST("/chat/messages/file", chatHandler.SendFile)
+		auth.POST("/chat/leave", chatHandler.Leave)
+		auth.DELETE("/chat/messages/:id", chatHandler.Delete)
 	}
 }
 
@@ -210,6 +227,7 @@ func registerAdminRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, c *cache
 	adminUserService := service.NewAdminUserService(db)
 	homepageService := service.NewHomepageService(db, c)
 	resourceService := service.NewResourceService(db)
+	chatService := service.NewChatService(db, c)
 
 	adminHandler := handler.NewAdminHandler(adminService)
 	adminEventHandler := handler.NewAdminEventHandler(adminEventService)
@@ -218,10 +236,11 @@ func registerAdminRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, c *cache
 	adminShowcaseHandler := handler.NewAdminShowcaseHandler(adminShowcaseService)
 	adminUserHandler := handler.NewAdminUserHandler(adminUserService)
 	adminCommentHandler := handler.NewAdminCommentHandler(commentService)
+	adminChatHandler := handler.NewAdminChatHandler(chatService)
 	resourceHandler := handler.NewResourceHandler(resourceService)
 
 	admin := r.Group("/api/v1/admin")
-	adminLimit := middleware.RateLimitMiddleware(20, time.Minute)
+	adminLimit := middleware.RateLimitMiddleware(rdb, 20, time.Minute)
 	admin.POST("/auth/login", adminLimit, adminHandler.Login)
 	admin.POST("/auth/logout", adminHandler.Logout)
 
@@ -268,5 +287,8 @@ func registerAdminRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, c *cache
 		auth.GET("/comments", adminCommentHandler.List)
 		auth.DELETE("/comments/:id", adminCommentHandler.Delete)
 		auth.PATCH("/comments/:id/status", adminCommentHandler.SetStatus)
+
+		auth.GET("/chat/messages", adminChatHandler.List)
+		auth.DELETE("/chat/messages/:id", adminChatHandler.Delete)
 	}
 }

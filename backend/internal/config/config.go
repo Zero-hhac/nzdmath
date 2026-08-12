@@ -59,6 +59,10 @@ func LoadConfig() *Config {
 	viper.AddConfigPath("./configs")
 	viper.AddConfigPath("./internal/config")
 
+	viper.BindEnv("mysql.password", "MYSQL_PASSWORD")
+	viper.BindEnv("jwt.secret", "JWT_SECRET")
+	viper.BindEnv("app.mode", "APP_MODE")
+
 	if err := viper.ReadInConfig(); err != nil {
 		slog.Error("读取配置文件失败", "err", err)
 		panic(err)

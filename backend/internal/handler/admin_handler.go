@@ -62,6 +62,7 @@ func (h *AdminHandler) Dashboard(c *gin.Context) {
 		"trend_7days":    data.Trend,
 		"today_activity": data.TodayActivity,
 		"activity_trend": data.Activity,
+		"total_activity": data.TotalActivity,
 		"user_count":     data.Counts.Users,
 		"event_count":    data.Counts.Events,
 		"news_count":     data.Counts.News,

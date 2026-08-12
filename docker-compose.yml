@@ -5,14 +5,14 @@ services:
     image: mysql:8.0
     container_name: math-top-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: nzdmath123_db_password
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}
       MYSQL_DATABASE: math_top
     volumes:
       - mysql_data:/var/lib/mysql
     ports:
       - "3307:3306"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pnzdmath123_db_password"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_PASSWORD}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -41,6 +41,9 @@ services:
         condition: service_started
     environment:
       - APP_ENV=docker
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}
+      - JWT_SECRET=${JWT_SECRET:?set JWT_SECRET in .env}
+      - ADMIN_INITIAL_PASSWORD=${ADMIN_INITIAL_PASSWORD:-}
     volumes:
       - ./backend/storage/uploads:/app/storage/uploads
     expose:

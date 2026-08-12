@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   User, BookOpen, Heart, LogIn, LogOut, Download, Save, X, Edit2, Camera,
-  Lock, MessageCircle, Trash2, Clock,
+  Lock, Trash2, Clock,
 } from 'lucide-react';
 import type { ViewProps } from '@/src/types/app';
 import { api } from '@/src/lib/api';
@@ -30,15 +30,6 @@ type Download = {
   created_at: string;
 };
 
-type MyComment = {
-  id: number;
-  target_type: string;
-  target_id: number;
-  content: string;
-  like_count: number;
-  created_at: string;
-};
-
 export const MemberPortalView: React.FC<ViewProps> = () => {
   const { user, loading: authLoading, refreshUser, logoutUser } = useAuth();
   const { showToast } = useToast();
@@ -55,7 +46,7 @@ export const MemberPortalView: React.FC<ViewProps> = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
           <div className="lg:col-span-1 space-y-8">
             <div className="sidebar-panel rounded-[2.5rem] p-10 text-center space-y-6 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-[#e3f2fd] to-[#d5e3fc] opacity-50"></div>
+              <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-accent-soft/70 to-transparent opacity-60"></div>
               <div className="relative pt-6">
                 <div className="w-24 h-24 mx-auto rounded-[2rem] border-4 border-white shadow-xl overflow-hidden glass-card p-0 flex items-center justify-center bg-primary/10">
                   <User className="w-10 h-10 text-primary" />
@@ -95,7 +86,6 @@ export const MemberPortalView: React.FC<ViewProps> = () => {
         {subView === 'favorites' && <FavoritesView showToast={showToast} />}
         {subView === 'downloads' && <DownloadsView showToast={showToast} />}
         {subView === 'password' && <PasswordView showToast={showToast} />}
-        {subView === 'comments' && <MyCommentsView showToast={showToast} />}
       </div>
     </div>
   );
@@ -104,10 +94,10 @@ export const MemberPortalView: React.FC<ViewProps> = () => {
 function ProfileCard({ user, onSubView, onLogout }: { user: any; onSubView: (s: SubView) => void; onLogout: () => Promise<void> }) {
   return (
     <div className="sidebar-panel rounded-[2.5rem] p-10 text-center space-y-6 relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-[#e3f2fd] to-[#d5e3fc] opacity-50"></div>
+              <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-accent-soft/70 to-transparent opacity-60"></div>
       <div className="relative pt-6">
         {user.avatar ? (
-          <img src={user.avatar.startsWith('/') ? `http://localhost:8080${user.avatar}` : user.avatar} alt="" className="w-24 h-24 mx-auto rounded-[2rem] border-4 border-white shadow-xl object-cover" />
+          <img src={user.avatar} alt="" className="w-24 h-24 mx-auto rounded-[2rem] border-4 border-white shadow-xl object-cover" />
         ) : (
           <div className="w-24 h-24 mx-auto rounded-[2rem] border-4 border-white shadow-xl glass-card p-0 flex items-center justify-center bg-primary/10">
             <User className="w-10 h-10 text-primary" />
@@ -124,7 +114,6 @@ function ProfileCard({ user, onSubView, onLogout }: { user: any; onSubView: (s: 
           { label: '个人资料', icon: User, view: 'profile' as SubView },
           { label: '我的收藏', icon: Heart, view: 'favorites' as SubView },
           { label: '下载历史', icon: Download, view: 'downloads' as SubView },
-          { label: '我的评论', icon: MessageCircle, view: 'comments' as SubView },
           { label: '修改密码', icon: Lock, view: 'password' as SubView },
         ].map((item) => (
           <button
@@ -158,10 +147,9 @@ function Dashboard({ user, onSubView, showToast }: { user: any; onSubView: (s: S
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: '个人资料', icon: User, view: 'profile' as SubView, color: 'from-[#e3f2fd] to-[#d5e3fc]' },
-          { label: '我的收藏', icon: Heart, view: 'favorites' as SubView, color: 'from-[#fce4ec] to-[#f8bbd0]' },
-          { label: '下载历史', icon: Download, view: 'downloads' as SubView, color: 'from-[#fff9e5] to-[#fff3c4]' },
-          { label: '我的评论', icon: MessageCircle, view: 'comments' as SubView, color: 'from-[#e8f5e9] to-[#c8e6c9]' },
+          { label: '个人资料', icon: User, view: 'profile' as SubView, color: 'from-accent-soft/70 to-surface' },
+          { label: '我的收藏', icon: Heart, view: 'favorites' as SubView, color: 'from-canvas-alt to-surface' },
+          { label: '下载历史', icon: Download, view: 'downloads' as SubView, color: 'from-canvas-alt to-surface' },
         ].map((item) => (
           <button
             key={item.view}
@@ -239,7 +227,7 @@ function ProfileEditor({ user, onSaved, showToast }: { user: any; onSaved: () =>
       <div className="sidebar-panel rounded-[2rem] p-8 space-y-6">
         <div className="flex items-center gap-4">
           {user.avatar ? (
-            <img src={user.avatar.startsWith('/') ? `http://localhost:8080${user.avatar}` : user.avatar} alt="" className="w-20 h-20 rounded-2xl object-cover border-4 border-white shadow-md" />
+            <img src={user.avatar} alt="" className="w-20 h-20 rounded-2xl object-cover border-4 border-white shadow-md" />
           ) : (
             <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
               <User className="w-8 h-8 text-primary" />
@@ -266,11 +254,11 @@ function ProfileEditor({ user, onSaved, showToast }: { user: any; onSaved: () =>
           </div>
           <div>
             <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 block">昵称</label>
-            <input type="text" value={form.nickname} onChange={(e) => setForm({ ...form, nickname: e.target.value })} className="app-input w-full rounded-xl py-2.5 px-4" />
+            <input type="text" value={form.nickname} onChange={(e) => setForm({ ...form, nickname: e.target.value })} className="app-input w-full rounded-xl py-2.5 px-4" autoComplete="nickname" />
           </div>
           <div>
             <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 block">邮箱</label>
-            <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="app-input w-full rounded-xl py-2.5 px-4" />
+            <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="app-input w-full rounded-xl py-2.5 px-4" autoComplete="email" />
           </div>
           <div>
             <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 block">个人简介</label>
@@ -431,47 +419,20 @@ function PasswordView({ showToast }: { showToast: (m: string, t?: any) => void }
       <form onSubmit={submit} className="sidebar-panel rounded-[2rem] p-8 space-y-4">
         <div>
           <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 block">当前密码</label>
-          <input type="password" value={oldPwd} onChange={(e) => setOldPwd(e.target.value)} className="app-input w-full rounded-xl py-2.5 px-4" />
+          <input type="password" value={oldPwd} onChange={(e) => setOldPwd(e.target.value)} className="app-input w-full rounded-xl py-2.5 px-4" autoComplete="current-password" />
         </div>
         <div>
           <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 block">新密码（至少 6 位）</label>
-          <input type="password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} className="app-input w-full rounded-xl py-2.5 px-4" />
+          <input type="password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} className="app-input w-full rounded-xl py-2.5 px-4" autoComplete="new-password" />
         </div>
         <div>
           <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 block">确认新密码</label>
-          <input type="password" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} className="app-input w-full rounded-xl py-2.5 px-4" />
+          <input type="password" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} className="app-input w-full rounded-xl py-2.5 px-4" autoComplete="new-password" />
         </div>
         <button type="submit" disabled={saving} className="btn-primary flex items-center gap-2">
           <Lock className="w-4 h-4" /> {saving ? '提交中...' : '提交修改'}
         </button>
       </form>
-    </div>
-  );
-}
-
-function MyCommentsView({ showToast }: { showToast: (m: string, t?: any) => void }) {
-  const [items, setItems] = useState<MyComment[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setLoading(false);
-  }, []);
-
-  return (
-    <div className="space-y-6">
-      <div className="page-intro space-y-2">
-        <h2 className="section-title">我的评论</h2>
-        <p className="section-subtitle">显示你发表过的评论</p>
-      </div>
-
-      {loading ? (
-        <div className="text-center text-zinc-500 py-12">加载中...</div>
-      ) : (
-        <div className="sidebar-panel rounded-[2rem] p-12 text-center">
-          <MessageCircle className="w-10 h-10 text-zinc-300 mx-auto mb-3" />
-          <p className="text-zinc-500">评论功能已上线，前往资源或资讯详情页参与讨论吧</p>
-        </div>
-      )}
     </div>
   );
 }

@@ -1,28 +1,62 @@
-import React, { useEffect, useState } from 'react';
+import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { MathBackground } from './components/MathBackground';
-import { HomeView } from './views/HomeView';
-import { EventsView } from './views/EventsView';
-import { ResourcesView } from './views/ResourcesView';
-import { ShowcaseView } from './views/ShowcaseView';
-import { NewsView } from './views/NewsView';
-import { AboutView } from './views/AboutView';
-import { AdminView } from './views/AdminView';
-import { MemberPortalView as PortalView } from './views/MemberPortalView';
 import { AppOverlay } from './components/AppOverlay';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { AuthProvider } from './lib/auth';
 import { ToastProvider } from './lib/toast';
 import type { OverlayConfig, TabId } from './types/app';
 import { api } from './lib/api';
+
+const HomeView = lazy(() => import('./views/HomeView').then((m) => ({ default: m.HomeView })));
+const EventsView = lazy(() => import('./views/EventsView').then((m) => ({ default: m.EventsView })));
+const ResourcesView = lazy(() => import('./views/ResourcesView').then((m) => ({ default: m.ResourcesView })));
+const ShowcaseView = lazy(() => import('./views/ShowcaseView').then((m) => ({ default: m.ShowcaseView })));
+const NewsView = lazy(() => import('./views/NewsView').then((m) => ({ default: m.NewsView })));
+const AboutView = lazy(() => import('./views/AboutView').then((m) => ({ default: m.AboutView })));
+const AdminView = lazy(() => import('./views/AdminView').then((m) => ({ default: m.AdminView })));
+const ChatView = lazy(() => import('./views/ChatView').then((m) => ({ default: m.ChatView })));
+const PortalView = lazy(() => import('./views/MemberPortalView').then((m) => ({ default: m.MemberPortalView })));
+
+function PageLoading() {
+  return (
+    <div className="flex items-center justify-center py-24 text-sm font-medium text-text-muted">
+      加载中...
+    </div>
+  );
+}
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-canvas px-6 text-center">
+          <div>
+            <p className="text-lg font-semibold text-charcoal">页面暂时无法显示</p>
+            <p className="mt-2 text-sm text-text-muted">请刷新页面重试。</p>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 
 export default function App() {
   return (
     <ToastProvider>
       <AuthProvider>
-        <AppShell />
+        <ErrorBoundary>
+          <AppShell />
+        </ErrorBoundary>
       </AuthProvider>
     </ToastProvider>
   );
@@ -52,6 +86,7 @@ function AppShell() {
       case 'showcase': return <ShowcaseView navigate={navigate} openOverlay={openOverlay} />;
       case 'news': return <NewsView navigate={navigate} openOverlay={openOverlay} />;
       case 'about': return <AboutView navigate={navigate} openOverlay={openOverlay} />;
+      case 'chat': return <ChatView navigate={navigate} openOverlay={openOverlay} />;
       case 'admin': return <AdminView navigate={navigate} openOverlay={openOverlay} />;
       case 'portal': return <PortalView navigate={navigate} openOverlay={openOverlay} />;
       default: return <HomeView navigate={navigate} openOverlay={openOverlay} />;
@@ -60,21 +95,26 @@ function AppShell() {
 
   return (
     <div className="min-h-screen flex flex-col selection:bg-charcoal/10 selection:text-charcoal">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[130] focus:rounded-full focus:bg-charcoal focus:px-4 focus:py-2 focus:text-white"
+      >
+        跳到主要内容
+      </a>
       <MathBackground />
       <Navbar activeTab={activeTab} setActiveTab={navigate} />
 
-      <main className="flex-grow pt-32 pb-32 px-6 md:px-10 max-w-5xl mx-auto w-full overflow-hidden">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -10 }}
-            transition={{ duration: 0.3, ease: 'easeInOut' }}
-          >
+      <main id="main-content" tabIndex={-1} className="flex-grow pt-28 md:pt-32 pb-24 md:pb-32 px-4 sm:px-6 md:px-10 max-w-6xl mx-auto w-full">
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, x: 10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3, ease: 'easeInOut' }}
+        >
+          <Suspense fallback={<PageLoading />}>
             {renderView()}
-          </motion.div>
-        </AnimatePresence>
+          </Suspense>
+        </motion.div>
       </main>
 
       <Footer openOverlay={openOverlay} />

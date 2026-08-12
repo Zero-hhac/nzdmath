@@ -2,7 +2,6 @@ package handler
 
 import (
 	"fmt"
-	"io"
 	"math-top/internal/response"
 	"math-top/internal/service"
 	"path/filepath"
@@ -61,29 +60,15 @@ func (h *ResourceHandler) Upload(c *gin.Context) {
 	if title == "" {
 		title = file.Filename
 	}
-	openedFile, err := file.Open()
-	if err != nil {
-		response.Fail(c, 500, "打开文件失败")
-		return
-	}
-	defer openedFile.Close()
-
-	fileData, err := io.ReadAll(openedFile)
-	if err != nil {
-		response.Fail(c, 500, "读取文件失败")
-		return
-	}
 
 	uploaderID := c.GetUint("user_id")
 	if uploaderID == 0 {
-		uploaderID = 1
+		response.Fail(c, 401, "请先登录")
+		return
 	}
 
-	err = h.svc.UploadFile(
-		file.Filename,
-		file.Size,
-		file.Header.Get("Content-Type"),
-		fileData,
+	resource, err := h.svc.UploadFile(
+		file,
 		"",
 		summary,
 		title,
@@ -91,10 +76,10 @@ func (h *ResourceHandler) Upload(c *gin.Context) {
 		uploaderID,
 	)
 	if err != nil {
-		response.Fail(c, 500, fmt.Sprintf("上传文件失败: %v", err))
+		response.Fail(c, 400, fmt.Sprintf("上传文件失败: %v", err))
 		return
 	}
-	response.Success(c, nil)
+	response.Success(c, gin.H{"id": resource.ID})
 }
 
 func (h *ResourceHandler) Download(c *gin.Context) {
@@ -123,7 +108,8 @@ func (h *ResourceHandler) Download(c *gin.Context) {
 		disposition = "inline"
 	}
 
-	c.Header("Content-Disposition", fmt.Sprintf(`%s; filename="%s"`, disposition, resource.FileName))
+	safeName := strings.NewReplacer("\r", "", "\n", "", `"`, "").Replace(resource.FileName)
+	c.Header("Content-Disposition", fmt.Sprintf(`%s; filename="%s"`, disposition, safeName))
 	c.File(resource.FilePath)
 }
 

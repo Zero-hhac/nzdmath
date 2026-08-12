@@ -131,6 +131,7 @@ export const LoginModal: React.FC<Props> = ({ open, onClose, defaultMode = 'user
                   onChange={(e) => setUsername(e.target.value)}
                   className="app-input w-full rounded-xl py-3 px-4"
                   placeholder={mode === 'admin' ? 'admin' : '请输入用户名'}
+                  autoComplete="username"
                   autoFocus
                 />
               </div>
@@ -146,6 +147,7 @@ export const LoginModal: React.FC<Props> = ({ open, onClose, defaultMode = 'user
                     onChange={(e) => setPassword(e.target.value)}
                     className="app-input w-full rounded-xl py-3 px-4 pr-12"
                     placeholder="请输入密码"
+                    autoComplete={isRegistering ? 'new-password' : 'current-password'}
                   />
                   <button
                     type="button"
@@ -168,6 +170,7 @@ export const LoginModal: React.FC<Props> = ({ open, onClose, defaultMode = 'user
                     onChange={(e) => setNickname(e.target.value)}
                     className="app-input w-full rounded-xl py-3 px-4"
                     placeholder="请输入昵称"
+                    autoComplete="nickname"
                   />
                 </div>
               )}

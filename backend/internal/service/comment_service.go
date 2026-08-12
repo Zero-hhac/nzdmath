@@ -3,7 +3,6 @@ package service
 import (
 	"errors"
 	"math-top/internal/model"
-	"strconv"
 
 	"gorm.io/gorm"
 )
@@ -78,9 +77,7 @@ func (s *CommentService) ListByTarget(targetType string, targetID uint, page, pa
 	if page < 1 {
 		page = 1
 	}
-	if pageSize < 1 {
-		pageSize = 10
-	}
+	pageSize = normalizePageSize(pageSize)
 	var total int64
 	s.db.Model(&model.Comment{}).
 		Where("target_type = ? AND target_id = ? AND parent_id IS NULL AND status = 1", targetType, targetID).
@@ -139,9 +136,7 @@ func (s *CommentService) ListWithFilter(page, pageSize int, targetType string, s
 	if page < 1 {
 		page = 1
 	}
-	if pageSize < 1 {
-		pageSize = 10
-	}
+	pageSize = normalizePageSize(pageSize)
 	tx := s.db.Model(&model.Comment{})
 	if targetType != "" {
 		tx = tx.Where("target_type = ?", targetType)
@@ -158,6 +153,16 @@ func (s *CommentService) ListWithFilter(page, pageSize int, targetType string, s
 		return nil, 0, err
 	}
 	return comments, total, nil
+}
+
+func normalizePageSize(pageSize int) int {
+	if pageSize < 1 {
+		return 10
+	}
+	if pageSize > 50 {
+		return 50
+	}
+	return pageSize
 }
 
 func (s *CommentService) AdminDelete(commentID uint) error {
@@ -251,5 +256,3 @@ func (s *CommentService) FillUserInfoAsSlice(comments []CommentWithReplies) []Co
 	}
 	return comments
 }
-
-var _ = strconv.Itoa

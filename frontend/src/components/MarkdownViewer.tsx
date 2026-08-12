@@ -5,6 +5,15 @@ import remarkMath from 'remark-math';
 import remarkBreaks from 'remark-breaks';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
+
+const markdownSchema = {
+  ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    '*': [...(defaultSchema.attributes?.['*'] || []), 'className', 'style'],
+  },
+};
 
 export function MarkdownViewer({ content }: { content?: string }) {
   if (!content) return null;
@@ -20,7 +29,7 @@ export function MarkdownViewer({ content }: { content?: string }) {
                     prose-table:border-collapse prose-th:bg-zinc-100 prose-th:p-2 prose-td:p-2">
       <ReactMarkdown 
         remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]}
-        rehypePlugins={[rehypeRaw, rehypeKatex]}
+        rehypePlugins={[rehypeRaw, [rehypeSanitize, markdownSchema], rehypeKatex]}
       >
         {content}
       </ReactMarkdown>

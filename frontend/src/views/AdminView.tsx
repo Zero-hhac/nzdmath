@@ -137,6 +137,7 @@ function DashboardView({ onSwitch }: { onSwitch: (s: SubView) => void }) {
   const trend = stats.trend_7days || { dates: [], events: [], news: [] };
   const todayAct = stats.today_activity || { pv: 0, uv: 0, dau: 0 };
   const activity = stats.activity_trend || { dates: [], pv: [], uv: [], dau: [] };
+  const totalActivity = stats.total_activity || { pv: 0, uv: 0 };
 
   const handleInvalidate = async () => {
     try {
@@ -190,6 +191,49 @@ function DashboardView({ onSwitch }: { onSwitch: (s: SubView) => void }) {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* 全站累计访问数据 */}
+      <div className="grid grid-cols-1 lg:grid-cols-[0.9fr_1.1fr] gap-6">
+        <div className="grid grid-cols-2 gap-4">
+          {[
+            { label: '总浏览量 (PV)', value: totalActivity.pv || 0, icon: Eye, color: '#e1f3fe' },
+            { label: '总独立访客 (UV)', value: totalActivity.uv || 0, icon: Users, color: '#edf3ec' },
+          ].map((s) => (
+            <div key={s.label} className="sidebar-panel rounded-[2rem] p-5 space-y-4">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: s.color }}>
+                <s.icon className="w-5 h-5 text-accent" />
+              </div>
+              <div>
+                <div className="text-[10px] text-text-muted font-bold uppercase tracking-widest">{s.label}</div>
+                <div className="text-3xl font-medium tracking-tight text-charcoal mt-1">{s.value.toLocaleString('zh-CN')}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="sidebar-panel rounded-[2rem] p-6">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-lg font-medium tracking-tight text-charcoal">访问量总览</h3>
+              <p className="text-xs text-text-muted mt-1">从数据统计启用后累计计算</p>
+            </div>
+            <Eye className="w-5 h-5 text-accent" />
+          </div>
+          <div className="h-36 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={[
+                { name: '总浏览量', value: totalActivity.pv || 0, fill: '#1f2a44' },
+                { name: '总独立访客', value: totalActivity.uv || 0, fill: '#6f8f75' },
+              ]} layout="vertical" margin={{ top: 0, right: 12, left: 8, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#edf0f4" />
+                <XAxis type="number" hide />
+                <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#787774' }} width={70} />
+                <Tooltip formatter={(value: number) => [value.toLocaleString('zh-CN'), '数量']} contentStyle={{ borderRadius: '14px', border: '1px solid #eaeaea', fontSize: '12px' }} />
+                <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={22} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

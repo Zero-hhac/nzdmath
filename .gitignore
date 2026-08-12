@@ -10,11 +10,17 @@ frontend/npm-debug.log*
 frontend/yarn-debug.log*
 frontend/yarn-error.log*
 
+# Root environment
+.env
+.env.*
+!.env.example
+
 # Backend
 backend/storage/uploads/*
 !backend/storage/uploads/.gitkeep
 backend/storage/logs/*
-# backend/server
+backend/server
+backend/server.exe
 backend/backend
 backend/backend.log
 backend/configs/config.yaml
@@ -23,3 +29,9 @@ backend/configs/config.yaml
 .DS_Store
 .idea/
 *.log
+*.err
+frontend/vite.err
+
+# Local verification artifacts
+.tmp-go-cache/
+frontend/.tmp-dist/
