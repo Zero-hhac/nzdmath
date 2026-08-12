@@ -79,11 +79,11 @@
   }
 
   .bento-card {
-    @apply rounded-[var(--radius-panel)] border border-border bg-surface p-6 md:p-8 transition-all duration-300;
+    @apply rounded-[var(--radius-panel)] border border-white/70 bg-white/60 p-6 md:p-8 shadow-[0_8px_32px_rgba(31,42,68,0.06),inset_0_1px_0_rgba(255,255,255,0.85)] backdrop-blur-xl transition-all duration-300;
   }
   
   .bento-card:hover {
-    @apply shadow-[0_8px_28px_rgba(0,0,0,0.06)];
+    @apply shadow-[0_16px_44px_rgba(31,42,68,0.10),inset_0_1px_0_rgba(255,255,255,0.9)];
     transform: translateY(-4px);
   }
 
@@ -101,7 +101,7 @@
   }
 
   .page-intro {
-    @apply rounded-[var(--radius-hero)] border border-border bg-surface p-6 md:p-8;
+    @apply rounded-[var(--radius-hero)] border border-white/60 bg-white/70 p-6 md:p-8 backdrop-blur-xl;
   }
 
   .section-kicker {
@@ -185,7 +185,7 @@
 
   /* Glass Card (Used heavily in modals and page containers) */
   .glass-card {
-    @apply bg-white/95 backdrop-blur-xl border border-border shadow-[0_12px_40px_rgba(31,42,68,0.045),0_1px_2px_rgba(0,0,0,0.02)] transition-all duration-300;
+    @apply bg-white/75 backdrop-blur-2xl border border-white/60 shadow-[0_12px_40px_rgba(31,42,68,0.06),inset_0_1px_0_rgba(255,255,255,0.8)] transition-all duration-300;
   }
   
   .glass-card:hover {
@@ -195,7 +195,7 @@
 
   /* Sidebar/Dashboard Panels */
   .sidebar-panel {
-    @apply bg-white/95 border border-border shadow-[0_4px_24px_rgba(31,42,68,0.025)] transition-shadow duration-300 rounded-[var(--radius-hero)] p-6 lg:p-8;
+    @apply bg-white/70 border border-white/60 shadow-[0_8px_32px_rgba(31,42,68,0.05),inset_0_1px_0_rgba(255,255,255,0.8)] backdrop-blur-xl transition-shadow duration-300 rounded-[var(--radius-hero)] p-6 lg:p-8;
   }
 
   /* Inputs & Form Controls */

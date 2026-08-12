@@ -98,32 +98,32 @@ export const HomeView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
 
   const quickTones: Record<string, { card: string; icon: string; mark: string; arrow: string; edge: string }> = {
     blue: {
-      card: '!border-2 !border-[#8bc2f7] !bg-[#eaf4ff] shadow-[0_12px_32px_rgba(37,99,235,0.12)] hover:!bg-[#dcecff] hover:shadow-[0_18px_44px_rgba(37,99,235,0.18)]',
-      icon: 'bg-[#3b82f6] text-white',
-      mark: 'text-[#1d4ed8]',
-      arrow: 'bg-[#bfdbfe] text-[#1d4ed8] group-hover:bg-[#2563eb] group-hover:text-white',
-      edge: 'bg-gradient-to-r from-[#2563eb] via-[#60a5fa] to-[#bfdbfe]',
+      card: '!border-[#c7d8e6]/80 !bg-[#f5f9fc]/70 hover:!bg-[#eaf3f9]/80',
+      icon: 'bg-[#dceaf5]/80 text-[#527a96]',
+      mark: 'text-[#6f91a8]',
+      arrow: 'bg-white/70 text-[#527a96] group-hover:bg-[#dceaf5] group-hover:text-[#3f607a]',
+      edge: 'bg-gradient-to-r from-white/80 via-[#dceaf5]/60 to-transparent',
     },
     green: {
-      card: '!border-2 !border-[#86d6a2] !bg-[#ecf9ef] shadow-[0_12px_32px_rgba(34,197,94,0.12)] hover:!bg-[#ddf4e4] hover:shadow-[0_18px_44px_rgba(34,197,94,0.18)]',
-      icon: 'bg-[#22c55e] text-white',
-      mark: 'text-[#15803d]',
-      arrow: 'bg-[#bbf7d0] text-[#15803d] group-hover:bg-[#16a34a] group-hover:text-white',
-      edge: 'bg-gradient-to-r from-[#16a34a] via-[#4ade80] to-[#bbf7d0]',
+      card: '!border-[#d3e2d2]/80 !bg-[#f5faf4]/70 hover:!bg-[#eaf4ea]/80',
+      icon: 'bg-[#e0ece0]/80 text-[#5f7f63]',
+      mark: 'text-[#789a7c]',
+      arrow: 'bg-white/70 text-[#5f7f63] group-hover:bg-[#e0ece0] group-hover:text-[#47694b]',
+      edge: 'bg-gradient-to-r from-white/80 via-[#e0ece0]/60 to-transparent',
     },
     red: {
-      card: '!border-2 !border-[#f3a8a8] !bg-[#fef2f2] shadow-[0_12px_32px_rgba(239,68,68,0.12)] hover:!bg-[#fee2e2] hover:shadow-[0_18px_44px_rgba(239,68,68,0.18)]',
-      icon: 'bg-[#ef4444] text-white',
-      mark: 'text-[#b91c1c]',
-      arrow: 'bg-[#fecaca] text-[#b91c1c] group-hover:bg-[#dc2626] group-hover:text-white',
-      edge: 'bg-gradient-to-r from-[#dc2626] via-[#f87171] to-[#fecaca]',
+      card: '!border-[#ead5d1]/80 !bg-[#fcf7f5]/70 hover:!bg-[#f8ece8]/80',
+      icon: 'bg-[#f3e1dd]/80 text-[#8f625b]',
+      mark: 'text-[#a67a72]',
+      arrow: 'bg-white/70 text-[#8f625b] group-hover:bg-[#f3e1dd] group-hover:text-[#774d46]',
+      edge: 'bg-gradient-to-r from-white/80 via-[#f3e1dd]/60 to-transparent',
     },
     gold: {
-      card: '!border-2 !border-[#e7c56b] !bg-[#fff9e8] shadow-[0_12px_32px_rgba(202,138,4,0.12)] hover:!bg-[#fdf0c9] hover:shadow-[0_18px_44px_rgba(202,138,4,0.18)]',
-      icon: 'bg-[#d97706] text-white',
-      mark: 'text-[#92400e]',
-      arrow: 'bg-[#fde68a] text-[#92400e] group-hover:bg-[#b45309] group-hover:text-white',
-      edge: 'bg-gradient-to-r from-[#b45309] via-[#f59e0b] to-[#fde68a]',
+      card: '!border-[#eadfbe]/80 !bg-[#fbf8ed]/70 hover:!bg-[#f6efd8]/80',
+      icon: 'bg-[#f1e6c9]/80 text-[#8a7145]',
+      mark: 'text-[#a38b5e]',
+      arrow: 'bg-white/70 text-[#8a7145] group-hover:bg-[#f1e6c9] group-hover:text-[#6f5934]',
+      edge: 'bg-gradient-to-r from-white/80 via-[#f1e6c9]/60 to-transparent',
     },
   };
 
@@ -378,7 +378,7 @@ export const HomeView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
                 <span className={`text-[10px] font-bold uppercase tracking-[0.2em] ${quickTones[item.tone]?.mark || 'text-text-muted'}`}>
                   {item.kicker}
                 </span>
-                <span className="rounded-full bg-white/85 px-2.5 py-1 text-[10px] font-semibold text-charcoal-muted shadow-sm">
+                <span className="rounded-full bg-white/70 px-2.5 py-1 text-[10px] font-semibold text-charcoal-muted shadow-sm backdrop-blur-md">
                   {item.meta}
                 </span>
               </div>
