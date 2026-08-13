@@ -25,6 +25,14 @@ backend/server.exe
 backend/backend
 backend/backend.log
 backend/configs/config.yaml
+backend/export_*.xlsx
+backend/server.exe~
+backend/.trash_cleanup/
+backend/restore_seed.py
+backend/verify_restore.py
+
+# Local AI tool config (Claude Code, etc.)
+.claude/
 
 # System
 .DS_Store
@@ -36,3 +44,9 @@ frontend/vite.err
 # Local verification artifacts
 .tmp-go-cache/
 frontend/.tmp-dist/
+
+# 生产 SSL 证书（绝不入库）
+ssl/
+
+# 本地开发辅助工具目录（非项目代码）
+deepseek-harness/
