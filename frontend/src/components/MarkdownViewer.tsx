@@ -11,7 +11,8 @@ const markdownSchema = {
   ...defaultSchema,
   attributes: {
     ...defaultSchema.attributes,
-    '*': [...(defaultSchema.attributes?.['*'] || []), 'className', 'style'],
+    // 只保留 className（供 prose 排版），不放行 style，避免 CSS 注入
+    '*': [...(defaultSchema.attributes?.['*'] || []), 'className'],
   },
 };
 

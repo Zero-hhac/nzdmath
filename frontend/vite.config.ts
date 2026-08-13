@@ -9,9 +9,6 @@ export default defineConfig(({mode}) => {
   const backendUrl = `http://localhost:${backendPort}`;
   return {
     plugins: [react(), tailwindcss()],
-    define: {
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
@@ -23,7 +20,10 @@ export default defineConfig(({mode}) => {
       proxy: {
         '/api': {
           target: backendUrl,
-          changeOrigin: true,
+          // 不能改 Origin/Host：后端 WS 握手做同源校验（Origin == Host），
+          // changeOrigin:true 会把 Host 改成 8080，浏览器带 3000 的 Origin 时握手 403。
+          changeOrigin: false,
+          ws: true, // WebSocket（聊天室/通知推送通道）需要代理支持 Upgrade 握手
         },
         '/uploads': {
           target: backendUrl,
@@ -32,6 +32,17 @@ export default defineConfig(({mode}) => {
       },
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
+    },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            markdown: ['react-markdown', 'remark-gfm', 'rehype-raw', 'rehype-sanitize', 'katex', 'rehype-katex', 'remark-math'],
+            charts: ['recharts'],
+            docx: ['mammoth'],
+          },
+        },
+      },
     },
   };
 });

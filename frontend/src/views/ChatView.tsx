@@ -16,6 +16,8 @@ import type { ViewProps } from '@/src/types/app';
 import { api } from '@/src/lib/api';
 import { useAuth } from '@/src/lib/auth';
 import { useToast } from '@/src/lib/toast';
+import { connectChatWS } from '@/src/lib/ws';
+import { authFetchBlob } from '@/src/lib/http';
 import { LoginModal } from '@/src/components/LoginModal';
 
 type ChatMessage = {
@@ -23,6 +25,8 @@ type ChatMessage = {
   user_id: number;
   user_name?: string;
   user_avatar?: string;
+  real_name?: string;
+  department?: string;
   message_type: 'text' | 'image' | 'file' | 'system';
   content?: string;
   file_name?: string;
@@ -191,38 +195,37 @@ export const ChatView: React.FC<ViewProps> = ({ navigate }) => {
 
   useEffect(() => {
     if (!joined) return undefined;
-    let timer: number | undefined;
-    let stopped = false;
-    const controller = new AbortController();
-    const poll = async () => {
-      try {
-        const res = await api.getChatMessages({
-          afterId: lastMessageIdRef.current || undefined,
+
+    // WebSocket 实时通道：消息/撤回/在线数全走推送，替代原 2 秒轮询
+    return connectChatWS({
+      onMessage: (msg) => {
+        if (msg.type === 'message') {
+          mergeMessages([msg.data as ChatMessage]);
+        } else if (msg.type === 'delete') {
+          applyDeletedMessages(msg.data?.ids as number[] | undefined);
+        } else if (msg.type === 'presence') {
+          setOnlineCount(msg.data?.online_count || 0);
+        }
+      },
+      onClose: () => {
+        // ws.ts 会自动指数退避重连，这里仅提示
+        showToast('连接已断开，正在重连...', 'error');
+      },
+      onReconnect: () => {
+        // 重连成功：用 after_id 补齐断线期间的消息，避免漏收
+        if (!lastMessageIdRef.current) return;
+        api.getChatMessages({
+          afterId: lastMessageIdRef.current,
           limit: 100,
           afterDeleteMs: lastDeleteMsRef.current || undefined,
-        }, controller.signal);
-        if (stopped) return;
-        mergeMessages((res.data.messages || []) as ChatMessage[]);
-        applyDeletedMessages(res.data.deleted_ids);
-        setOnlineCount(res.data.online_count || 0);
-        if (res.data.deleted_at_ms) lastDeleteMsRef.current = res.data.deleted_at_ms;
-      } catch (err: any) {
-        if (stopped || err?.name === 'AbortError') return;
-        setJoined(false);
-        showToast(err.message || '聊天室连接已断开', 'error');
-        return;
-      }
-      if (!stopped) {
-        timer = window.setTimeout(poll, document.hidden ? 10000 : 2000);
-      }
-    };
-    timer = window.setTimeout(poll, 1000);
-
-    return () => {
-      stopped = true;
-      controller.abort();
-      if (timer) window.clearTimeout(timer);
-    };
+        }).then((res) => {
+          mergeMessages((res.data.messages || []) as ChatMessage[]);
+          applyDeletedMessages(res.data.deleted_ids);
+          setOnlineCount(res.data.online_count || 0);
+          if (res.data.deleted_at_ms) lastDeleteMsRef.current = res.data.deleted_at_ms;
+        }).catch(() => {});
+      },
+    });
   }, [joined, showToast]);
 
   const recallMessage = async (message: ChatMessage) => {
@@ -429,6 +432,8 @@ export const ChatView: React.FC<ViewProps> = ({ navigate }) => {
 };
 
 function MessageItem({ message, mine, onRecall }: { message: ChatMessage; mine: boolean; onRecall: () => void }) {
+  const [cardOpen, setCardOpen] = useState(false);
+
   if (message.message_type === 'system') {
     return (
       <div className="flex justify-center">
@@ -446,13 +451,38 @@ function MessageItem({ message, mine, onRecall }: { message: ChatMessage; mine: 
   return (
     <div className={`flex gap-3 ${mine ? 'justify-end' : 'justify-start'}`}>
       {!mine && (
-        message.user_avatar ? (
-          <img src={assetUrl(message.user_avatar)} alt="" className="mt-5 h-9 w-9 rounded-full object-cover border border-border" />
-        ) : (
-          <div className="mt-5 h-9 w-9 rounded-full bg-pastel-blue flex items-center justify-center text-pastel-blue-text text-xs font-bold">
-            {avatarText}
-          </div>
-        )
+        <div className="relative mt-5">
+          <button
+            type="button"
+            onClick={() => setCardOpen((v) => !v)}
+            className="block h-9 w-9 rounded-full overflow-hidden border border-border cursor-pointer"
+            title="查看个人名片"
+          >
+            {message.user_avatar ? (
+              <img src={assetUrl(message.user_avatar)} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <div className="h-full w-full bg-pastel-blue flex items-center justify-center text-pastel-blue-text text-xs font-bold">
+                {avatarText}
+              </div>
+            )}
+          </button>
+          {cardOpen && (
+            <div className="absolute left-0 top-11 z-10 w-44 rounded-2xl glass-card shadow-xl p-4 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-zinc-400">昵称</span>
+                <span className="text-sm font-medium text-charcoal truncate">{message.user_name || `用户 ${message.user_id}`}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-zinc-400">姓名</span>
+                <span className="text-sm font-medium text-charcoal truncate">{message.real_name || '未填写'}</span>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-zinc-400">部门</span>
+                <span className="text-sm font-medium text-charcoal truncate">{message.department || '未分配'}</span>
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       <div className={`max-w-[78%] space-y-1 ${mine ? 'items-end text-right' : ''}`}>
@@ -476,34 +506,120 @@ function MessageItem({ message, mine, onRecall }: { message: ChatMessage; mine: 
         }`}>
           {message.message_type === 'text' && <div className="whitespace-pre-wrap break-words">{message.content}</div>}
           {message.message_type === 'image' && (
-            <a href={assetUrl(message.file_url)} target="_blank" rel="noreferrer" className="block">
-              <img
-                src={assetUrl(message.file_url)}
-                alt={message.file_name || '聊天图片'}
-                className="max-h-72 max-w-full rounded-xl object-contain"
-              />
-              <div className={`mt-2 text-xs ${mine ? 'text-white/70' : 'text-text-muted'}`}>{message.file_name}</div>
-            </a>
+            <ChatFileImage message={message} mine={mine} />
           )}
           {message.message_type === 'file' && (
-            <a
-              href={assetUrl(message.file_url)}
-              target="_blank"
-              rel="noreferrer"
-              className={`flex min-w-0 items-center gap-3 rounded-xl p-3 ${
-                mine ? 'bg-white/10 hover:bg-white/15' : 'bg-canvas-alt hover:bg-black/[0.03]'
-              }`}
-            >
-              <FileText className="h-8 w-8 shrink-0" />
-              <span className="min-w-0 flex-1 text-left">
-                <span className="block truncate font-medium">{message.file_name || '文件'}</span>
-                <span className={`block text-xs ${mine ? 'text-white/70' : 'text-text-muted'}`}>{formatSize(message.file_size)}</span>
-              </span>
-              <Download className="h-4 w-4 shrink-0" />
-            </a>
+            <ChatFileDownload message={message} mine={mine} />
           )}
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * 聊天图片：/uploads/chat 已挂 JWT 静态路由，<img src> 无法带 Authorization 头，
+ * 改为认证 fetch + blob URL 展示。
+ */
+function ChatFileImage({ message, mine }: { message: ChatMessage; mine: boolean }) {
+  const [src, setSrc] = useState('');
+  const objectUrlRef = useRef('');
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!message.file_url) return;
+    authFetchBlob(message.file_url)
+      .then((blob) => {
+        if (cancelled) return;
+        objectUrlRef.current = URL.createObjectURL(blob);
+        setSrc(objectUrlRef.current);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [message.file_url]);
+
+  // 组件卸载时释放 blob URL
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = '';
+      }
+    };
+  }, []);
+
+  if (!src) {
+    return (
+      <div className="flex h-40 items-center justify-center text-xs text-text-muted">
+        图片加载中...
+      </div>
+    );
+  }
+
+  return (
+    <a href={src} target="_blank" rel="noreferrer" className="block">
+      <img
+        src={src}
+        alt={message.file_name || '聊天图片'}
+        className="max-h-72 max-w-full rounded-xl object-contain"
+      />
+      <div className={`mt-2 text-xs ${mine ? 'text-white/70' : 'text-text-muted'}`}>
+        {message.file_name}
+      </div>
+    </a>
+  );
+}
+
+/**
+ * 聊天文件下载：同样走认证 fetch + blob 下载。
+ */
+function ChatFileDownload({ message, mine }: { message: ChatMessage; mine: boolean }) {
+  const { showToast } = useToast();
+  const [downloading, setDownloading] = useState(false);
+
+  const download = async () => {
+    if (!message.file_url || downloading) return;
+    setDownloading(true);
+    try {
+      const blob = await authFetchBlob(message.file_url);
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = message.file_name || '文件';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      showToast('文件加载失败，请重试', 'error');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={download}
+      disabled={downloading}
+      className={`flex w-full min-w-0 items-center gap-3 rounded-xl p-3 ${
+        mine ? 'bg-white/10 hover:bg-white/15' : 'bg-canvas-alt hover:bg-black/[0.03]'
+      }`}
+    >
+      <FileText className="h-8 w-8 shrink-0" />
+      <span className="min-w-0 flex-1 text-left">
+        <span className="block truncate font-medium">{message.file_name || '文件'}</span>
+        <span className={`block text-xs ${mine ? 'text-white/70' : 'text-text-muted'}`}>
+          {formatSize(message.file_size)}
+        </span>
+      </span>
+      {downloading ? (
+        <RotateCcw className="h-4 w-4 shrink-0 animate-spin" />
+      ) : (
+        <Download className="h-4 w-4 shrink-0" />
+      )}
+    </button>
   );
 }

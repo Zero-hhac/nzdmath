@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { cn } from '@/src/lib/utils';
 import { useAuth } from '@/src/lib/auth';
 import { useToast } from '@/src/lib/toast';
 import { LoginModal } from './LoginModal';
+import { NotificationsBell } from './NotificationsBell';
 import { motion, AnimatePresence } from 'motion/react';
 import { LogIn, LogOut, User, ChevronDown, ShieldCheck, Menu, X } from 'lucide-react';
 import type { TabId } from '@/src/types/app';
+import { tabPaths } from '@/src/lib/routes';
 
 interface NavbarProps {
   activeTab: TabId;
@@ -32,10 +35,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
 
   const openUserLogin = () => { setLoginMode('user'); setLoginOpen(true); };
   const openAdminLogin = () => { setLoginMode('admin'); setLoginOpen(true); };
-  const selectTab = (tab: TabId) => {
-    setActiveTab(tab);
-    setMobileOpen(false);
-  };
+  const closeMobile = () => setMobileOpen(false);
 
   const handleLogout = async () => {
     await logoutUser();
@@ -53,18 +53,18 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
     <>
       <div className="fixed top-3 md:top-5 left-1/2 -translate-x-1/2 w-[calc(100%-1.5rem)] max-w-6xl z-50 flex justify-center">
         <nav className="glass-nav rounded-[1.5rem] md:rounded-full px-4 md:px-6 py-3 flex justify-between items-center w-full transition-all duration-300">
-          <div
+          <Link
+            to="/"
             className="font-sans text-lg font-bold tracking-tight text-charcoal cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={() => selectTab('home')}
           >
             数学协会
-          </div>
+          </Link>
 
           <div className="hidden md:flex gap-5 lg:gap-8 items-center">
             {navItems.map((item) => (
-              <button
+              <Link
                 key={item.id}
-                onClick={() => selectTab(item.id)}
+                to={tabPaths[item.id]}
                 className={cn(
                   'relative py-1 text-[13px] tracking-wide font-medium transition-all duration-300 hover:text-charcoal hover:-translate-y-0.5',
                   activeTab === item.id
@@ -80,11 +80,11 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                     className="absolute -bottom-1 left-1/2 -translate-x-1/2 h-1 w-1 bg-charcoal rounded-full"
                   />
                 )}
-              </button>
+              </Link>
             ))}
 
-            <button
-              onClick={() => selectTab('portal')}
+            <Link
+              to={tabPaths.portal}
               className={cn(
                 'text-[13px] tracking-wide font-medium transition-all duration-300 hover:text-charcoal hover:-translate-y-0.5',
                 activeTab === 'portal' ? 'text-charcoal font-bold' : 'text-text-muted'
@@ -92,7 +92,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
               aria-current={activeTab === 'portal' ? 'page' : undefined}
             >
               会员专区
-            </button>
+            </Link>
           </div>
 
           <div className="flex items-center gap-2">
@@ -144,11 +144,13 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
             ) : null}
 
             {user ? (
-              <div className="relative">
-                <button
-                  onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/[0.02] border border-border transition-all hover:bg-black/[0.04]"
-                >
+              <>
+                <NotificationsBell />
+                <div className="relative">
+                  <button
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/[0.02] border border-border transition-all hover:bg-black/[0.04]"
+                  >
                   {user.avatar ? (
                     <img src={user.avatar} alt="" className="w-6 h-6 rounded-full object-cover" />
                   ) : (
@@ -188,6 +190,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                   )}
                 </AnimatePresence>
               </div>
+              </>
             ) : (
               <div className="flex items-center gap-2">
                 <button
@@ -218,9 +221,10 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
             >
               <div className="grid grid-cols-1 gap-1">
                 {[...navItems, { id: 'portal' as const, label: '会员专区' }].map((item) => (
-                  <button
+                  <Link
                     key={item.id}
-                    onClick={() => selectTab(item.id)}
+                    to={tabPaths[item.id]}
+                    onClick={closeMobile}
                     className={cn(
                       'rounded-2xl px-4 py-3 text-left text-sm font-medium transition-colors',
                       activeTab === item.id ? 'bg-accent text-white' : 'text-charcoal-muted hover:bg-canvas-alt',
@@ -228,7 +232,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                     aria-current={activeTab === item.id ? 'page' : undefined}
                   >
                     {item.label}
-                  </button>
+                  </Link>
                 ))}
               </div>
               {!admin && (

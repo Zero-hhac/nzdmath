@@ -1,15 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   User, BookOpen, Heart, LogIn, LogOut, Download, Save, X, Edit2, Camera,
-  Lock, Trash2, Clock,
+  Lock, Trash2, Clock, CalendarDays,
 } from 'lucide-react';
 import type { ViewProps } from '@/src/types/app';
-import { api } from '@/src/lib/api';
+import { api, DEPARTMENTS } from '@/src/lib/api';
 import { useAuth } from '@/src/lib/auth';
 import { useToast } from '@/src/lib/toast';
 import { LoginModal } from '@/src/components/LoginModal';
 
-type SubView = 'dashboard' | 'profile' | 'favorites' | 'downloads' | 'password' | 'comments';
+type SubView = 'dashboard' | 'profile' | 'favorites' | 'downloads' | 'password' | 'comments' | 'registrations';
 
 type Favorite = {
   id: number;
@@ -30,7 +30,7 @@ type Download = {
   created_at: string;
 };
 
-export const MemberPortalView: React.FC<ViewProps> = () => {
+export const MemberPortalView: React.FC<ViewProps> = ({ navigate }) => {
   const { user, loading: authLoading, refreshUser, logoutUser } = useAuth();
   const { showToast } = useToast();
   const [loginOpen, setLoginOpen] = useState(false);
@@ -86,6 +86,7 @@ export const MemberPortalView: React.FC<ViewProps> = () => {
         {subView === 'favorites' && <FavoritesView showToast={showToast} />}
         {subView === 'downloads' && <DownloadsView showToast={showToast} />}
         {subView === 'password' && <PasswordView showToast={showToast} />}
+        {subView === 'registrations' && <RegistrationsView showToast={showToast} navigate={navigate} />}
       </div>
     </div>
   );
@@ -114,6 +115,7 @@ function ProfileCard({ user, onSubView, onLogout }: { user: any; onSubView: (s: 
           { label: '个人资料', icon: User, view: 'profile' as SubView },
           { label: '我的收藏', icon: Heart, view: 'favorites' as SubView },
           { label: '下载历史', icon: Download, view: 'downloads' as SubView },
+          { label: '我的活动', icon: CalendarDays, view: 'registrations' as SubView },
           { label: '修改密码', icon: Lock, view: 'password' as SubView },
         ].map((item) => (
           <button
@@ -145,11 +147,23 @@ function Dashboard({ user, onSubView, showToast }: { user: any; onSubView: (s: S
         <p className="section-subtitle">欢迎回来，{user.nickname || user.username}！</p>
       </div>
 
+      {(!user.real_name || !user.class_name || !user.department) && (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+          <div className="flex-1 text-sm text-amber-800">
+            <span className="font-bold">资料待完善：</span>请补充姓名、班级与部门，方便协会组织活动和内部联系。
+          </div>
+          <button onClick={() => onSubView('profile')} className="btn-primary !py-2 !text-xs shrink-0">
+            <Edit2 className="w-3.5 h-3.5" /> 去完善
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: '个人资料', icon: User, view: 'profile' as SubView, color: 'from-accent-soft/70 to-surface' },
           { label: '我的收藏', icon: Heart, view: 'favorites' as SubView, color: 'from-canvas-alt to-surface' },
           { label: '下载历史', icon: Download, view: 'downloads' as SubView, color: 'from-canvas-alt to-surface' },
+          { label: '我的活动', icon: CalendarDays, view: 'registrations' as SubView, color: 'from-canvas-alt to-surface' },
         ].map((item) => (
           <button
             key={item.view}
@@ -181,12 +195,23 @@ function Dashboard({ user, onSubView, showToast }: { user: any; onSubView: (s: S
 
 function ProfileEditor({ user, onSaved, showToast }: { user: any; onSaved: () => Promise<void>; showToast: (m: string, t?: any) => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const [form, setForm] = useState({ nickname: user.nickname || '', bio: user.bio || '', email: user.email || '' });
+  const [form, setForm] = useState({
+    nickname: user.nickname || '',
+    bio: user.bio || '',
+    email: user.email || '',
+    real_name: user.real_name || '',
+    class_name: user.class_name || '',
+    department: user.department || '',
+  });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.real_name.trim() || !form.class_name.trim() || !form.department) {
+      showToast('请填写姓名、班级并选择部门', 'error');
+      return;
+    }
     setSaving(true);
     try {
       await api.updateProfile(form);
@@ -255,6 +280,23 @@ function ProfileEditor({ user, onSaved, showToast }: { user: any; onSaved: () =>
           <div>
             <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 block">昵称</label>
             <input type="text" value={form.nickname} onChange={(e) => setForm({ ...form, nickname: e.target.value })} className="app-input w-full rounded-xl py-2.5 px-4" autoComplete="nickname" />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 block">姓名 <span className="text-rose-500">*</span></label>
+            <input type="text" value={form.real_name} onChange={(e) => setForm({ ...form, real_name: e.target.value })} className="app-input w-full rounded-xl py-2.5 px-4" autoComplete="name" />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 block">班级 <span className="text-rose-500">*</span></label>
+            <input type="text" value={form.class_name} onChange={(e) => setForm({ ...form, class_name: e.target.value })} className="app-input w-full rounded-xl py-2.5 px-4" placeholder="请输入所在班级" />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 block">部门 <span className="text-rose-500">*</span></label>
+            <select value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} className="app-input w-full rounded-xl py-2.5 px-4">
+              <option value="">请选择部门</option>
+              {DEPARTMENTS.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 block">邮箱</label>
@@ -395,7 +437,10 @@ function PasswordView({ showToast }: { showToast: (m: string, t?: any) => void }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPwd.length < 6) { showToast('新密码至少 6 位', 'error'); return; }
+    if (newPwd.length < 6 || !/(?=.*[A-Za-z])(?=.*\d)/.test(newPwd)) {
+      showToast('新密码至少 6 位，且必须同时包含字母和数字', 'error');
+      return;
+    }
     if (newPwd !== confirmPwd) { showToast('两次输入不一致', 'error'); return; }
     setSaving(true);
     try {
@@ -422,7 +467,7 @@ function PasswordView({ showToast }: { showToast: (m: string, t?: any) => void }
           <input type="password" value={oldPwd} onChange={(e) => setOldPwd(e.target.value)} className="app-input w-full rounded-xl py-2.5 px-4" autoComplete="current-password" />
         </div>
         <div>
-          <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 block">新密码（至少 6 位）</label>
+          <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 block">新密码（至少 6 位，需包含字母和数字）</label>
           <input type="password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} className="app-input w-full rounded-xl py-2.5 px-4" autoComplete="new-password" />
         </div>
         <div>
@@ -433,6 +478,85 @@ function PasswordView({ showToast }: { showToast: (m: string, t?: any) => void }
           <Lock className="w-4 h-4" /> {saving ? '提交中...' : '提交修改'}
         </button>
       </form>
+    </div>
+  );
+}
+
+/** 我的活动：报名列表 + 取消报名 */
+function RegistrationsView({ showToast, navigate }: { showToast: (m: string, t?: any) => void; navigate: (tab: any) => void }) {
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = () => {
+    setLoading(true);
+    api.getMyRegistrations()
+      .then((res) => setItems(res.data || []))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const cancel = async (eventId: number) => {
+    if (!confirm('确定取消报名吗？')) return;
+    try {
+      await api.cancelEventRegistration(eventId);
+      showToast('已取消报名', 'success');
+      load();
+    } catch (err: any) {
+      showToast(err.message || '操作失败', 'error');
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="page-intro space-y-2">
+        <h2 className="section-title">我的活动</h2>
+        <p className="section-subtitle">已报名的活动与签到状态</p>
+      </div>
+      {loading ? (
+        <div className="text-center text-zinc-500 py-12">加载中...</div>
+      ) : items.length === 0 ? (
+        <div className="sidebar-panel rounded-[2rem] p-10 text-center text-zinc-500">
+          还没有报名任何活动，去 <button className="text-primary" onClick={() => navigate('events')}>活动中心</button> 看看吧
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {items.map((it) => {
+            const started = it.start_time ? new Date(it.start_time).getTime() < Date.now() : false;
+            return (
+              <div key={it.event_id} className="sidebar-panel rounded-2xl p-5 flex flex-wrap items-center gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-charcoal truncate">{it.event_title}</div>
+                  <div className="text-xs text-zinc-500 mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                    <span>{new Date(it.start_time).toLocaleString('zh-CN')}</span>
+                    {it.event_location && <span>📍 {it.event_location}</span>}
+                    <span>报名于 {new Date(it.registered_at).toLocaleString('zh-CN')}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {it.status === 2 ? (
+                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">
+                      已签到 {it.checked_in_at ? new Date(it.checked_in_at).toLocaleString('zh-CN') : ''}
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-600 border border-blue-200">
+                      已报名
+                    </span>
+                  )}
+                  {it.status === 1 && !started && (
+                    <button onClick={() => cancel(it.event_id)} className="btn-ghost !px-3 !py-1.5 !text-xs text-rose-500">
+                      取消报名
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

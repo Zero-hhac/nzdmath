@@ -61,6 +61,12 @@ export const AppOverlay: React.FC<AppOverlayProps> = ({ overlay, onClose }) => {
 
             <div className="overflow-y-auto bg-surface px-5 py-6 md:px-8 md:py-8">{overlay.content}</div>
 
+            {overlay.footer && (
+              <div className="flex-shrink-0 border-t border-border bg-canvas-alt px-5 py-5 md:px-8">
+                {overlay.footer}
+              </div>
+            )}
+
             {overlay.actions && overlay.actions.length > 0 && (
               <div className="flex flex-wrap justify-end gap-3 border-t border-border bg-canvas-alt px-5 py-5 md:px-8">
                 {overlay.actions.map((action) => (

@@ -8,6 +8,9 @@ export type UserInfo = {
   email?: string;
   role?: string;
   avatar?: string;
+  real_name?: string;
+  class_name?: string;
+  department?: string;
 };
 
 export type AdminInfo = {

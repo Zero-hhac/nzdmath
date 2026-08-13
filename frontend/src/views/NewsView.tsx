@@ -29,13 +29,31 @@ function formatDate(value?: string) {
 export const NewsView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+
+  const load = (p: number) => {
+    if (p > 1) setLoadingMore(true);
+    else setLoading(true);
+    api.getNews(p, 10)
+      .then((res) => {
+        setNews((prev) => (p === 1 ? res.data || [] : [...prev, ...(res.data || [])]));
+        setTotal(res.total || 0);
+        setPage(p);
+      })
+      .catch(() => {
+        if (p === 1) setNews([]);
+      })
+      .finally(() => {
+        setLoading(false);
+        setLoadingMore(false);
+      });
+  };
 
   useEffect(() => {
-    setLoading(true);
-    api.getNews()
-      .then((res) => setNews(res.data || []))
-      .catch(() => setNews([]))
-      .finally(() => setLoading(false));
+    load(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const recentTopics = news.slice(0, 3).map((n) => ({ id: n.id, title: n.title }));
@@ -106,6 +124,17 @@ export const NewsView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
                 </article>
               );
             })}
+          </div>
+        )}
+        {news.length < total && (
+          <div className="flex justify-center pt-2">
+            <button
+              onClick={() => load(page + 1)}
+              disabled={loadingMore}
+              className="btn-secondary !px-6 !py-2.5"
+            >
+              {loadingMore ? '加载中...' : `加载更多资讯（${news.length}/${total}）`}
+            </button>
           </div>
         )}
       </div>

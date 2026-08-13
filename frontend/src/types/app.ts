@@ -21,6 +21,8 @@ export interface OverlayConfig {
   title: string;
   subtitle?: string;
   content: ReactNode;
+  /** 固定在卡片底部、不随内容滚动的自定义区域（如活动报名栏） */
+  footer?: ReactNode;
   actions?: OverlayAction[];
 }
 
