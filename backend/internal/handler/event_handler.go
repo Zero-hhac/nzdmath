@@ -4,27 +4,38 @@ import (
 	"math-top/internal/response"
 	"math-top/internal/service"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
 type EventHandler struct {
-	svc *service.EventService
+	svc    *service.EventService
+	regSvc *service.EventRegistrationService
 }
 
-func NewEventHandler(svc *service.EventService) *EventHandler {
+func NewEventHandler(svc *service.EventService, regSvc *service.EventRegistrationService) *EventHandler {
 	return &EventHandler{
-		svc: svc,
+		svc:    svc,
+		regSvc: regSvc,
 	}
 }
 
 func (h *EventHandler) List(c *gin.Context) {
-	events, err := h.svc.ListEvents()
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "12"))
+	events, total, err := h.svc.ListEvents(page, pageSize)
 	if err != nil {
 		response.Fail(c, 500, "获取活动列表失败")
 		return
 	}
-	response.Success(c, events)
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 12
+	}
+	response.PageSuccess(c, events, total, page, pageSize)
 }
 
 func (h *EventHandler) Detail(c *gin.Context) {
@@ -39,5 +50,10 @@ func (h *EventHandler) Detail(c *gin.Context) {
 		response.Fail(c, 404, "活动不存在")
 		return
 	}
-	response.Success(c, event)
+	// 可选登录态：带 token 时附加当前用户报名状态
+	tokenString := ""
+	if parts := strings.Split(c.GetHeader("Authorization"), " "); len(parts) == 2 && parts[0] == "Bearer" {
+		tokenString = parts[1]
+	}
+	response.Success(c, h.regSvc.BuildDetail(event, tokenString))
 }

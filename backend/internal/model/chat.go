@@ -7,6 +7,8 @@ type ChatMessage struct {
 	UserID      uint       `gorm:"index;not null" json:"user_id"`
 	UserName    string     `gorm:"-" json:"user_name"`
 	UserAvatar  string     `gorm:"-" json:"user_avatar"`
+	RealName    string     `gorm:"-" json:"real_name"`
+	Department  string     `gorm:"-" json:"department"`
 	MessageType string     `gorm:"type:varchar(20);not null;index" json:"message_type"`
 	Content     string     `gorm:"type:text" json:"content"`
 	FileName    string     `gorm:"type:varchar(255)" json:"file_name"`

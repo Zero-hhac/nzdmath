@@ -1,7 +1,7 @@
 app:
   name: math-top-backend
   port: "8080"
-  mode: debug
+  mode: release
 
 mysql:
   host: mysql
@@ -22,3 +22,10 @@ jwt:
 
 storage:
   upload_dir: ./storage/uploads
+
+smtp:
+  host: ""
+  port: 0
+  user: ""
+  password: ""
+  from: ""

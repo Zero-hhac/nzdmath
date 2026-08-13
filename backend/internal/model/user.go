@@ -10,6 +10,9 @@ type User struct {
 	Email        *string    `gorm:"type:varchar(100);uniqueIndex" json:"email"`
 	Avatar       string    `gorm:"type:varchar(500)" json:"avatar"`
 	Bio          string    `gorm:"type:text" json:"bio"`
+	RealName     string    `gorm:"type:varchar(50);default:'';not null" json:"real_name"`
+	ClassName    string    `gorm:"type:varchar(50);default:'';not null" json:"class_name"`
+	Department   string    `gorm:"type:varchar(20);default:'';not null;index" json:"department"`
 	Role         string    `gorm:"type:varchar(20);default:'member';index" json:"role"`
 	Status       int       `gorm:"type:tinyint;default:1;index" json:"status"`
 	LastLoginAt  *time.Time `json:"last_login_at"`

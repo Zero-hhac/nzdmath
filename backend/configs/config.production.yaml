@@ -1,0 +1,38 @@
+# 生产环境配置模板（APP_ENV=production 时加载本文件）
+# 敏感项一律由环境变量注入，禁止在此文件写明文密钥：
+#   JWT_SECRET      强随机字符串（>= 32 位，如 openssl rand -base64 48）
+#   MYSQL_PASSWORD  MySQL 密码
+#   REDIS_PASSWORD  Redis 密码（未设密码则留空）
+# 配置校验：mode=release 时 JWT_SECRET 不足 32 位或为空将拒绝启动。
+
+app:
+  name: math-top-backend
+  port: "8080"          # 服务端口，按需修改
+  mode: release
+
+mysql:
+  host: 127.0.0.1
+  port: 3306
+  user: root
+  password: ""          # 环境变量 MYSQL_PASSWORD
+  dbname: math_top
+
+redis:
+  host: 127.0.0.1
+  port: 6379
+  password: ""          # 环境变量 REDIS_PASSWORD
+  db: 0
+
+jwt:
+  secret: ""            # 环境变量 JWT_SECRET
+  expire_hours: 24
+
+smtp:
+  host: ""              # 环境变量 SMTP_HOST
+  port: 0               # 环境变量 SMTP_PORT
+  user: ""              # 环境变量 SMTP_USER
+  password: ""          # 环境变量 SMTP_PASSWORD
+  from: ""              # 环境变量 SMTP_FROM
+
+storage:
+  upload_dir: ./storage/uploads

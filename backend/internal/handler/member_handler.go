@@ -32,10 +32,13 @@ func (h *MemberHandler) UpdateProfile(c *gin.Context) {
 	userID := c.GetUint("user_id")
 
 	var req struct {
-		Nickname string `json:"nickname"`
-		Avatar   string `json:"avatar"`
-		Bio      string `json:"bio"`
-		Email    string `json:"email"`
+		Nickname   string `json:"nickname"`
+		Avatar     string `json:"avatar"`
+		Bio        string `json:"bio"`
+		Email      string `json:"email"`
+		RealName   string `json:"real_name"`
+		ClassName  string `json:"class_name"`
+		Department string `json:"department"`
 	}
 	err := c.ShouldBindJSON(&req)
 	if err != nil {
@@ -43,9 +46,9 @@ func (h *MemberHandler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	err = h.svc.UpdateProfile(userID, req.Nickname, req.Avatar, req.Bio, req.Email)
+	err = h.svc.UpdateProfile(userID, req.Nickname, req.Avatar, req.Bio, req.Email, req.RealName, req.ClassName, req.Department)
 	if err != nil {
-		response.Fail(c, 500, "更新用户信息失败")
+		response.Fail(c, 400, err.Error())
 		return
 	}
 	response.Success(c, nil)

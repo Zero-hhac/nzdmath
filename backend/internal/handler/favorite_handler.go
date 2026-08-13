@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"errors"
 	"math-top/internal/response"
 	"math-top/internal/service"
+	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -30,7 +32,12 @@ func (h *FavoriteHandler) AddFavorite(c *gin.Context) {
 	}
 	err := h.svc.AddFavorite(userID, req.TargetID, req.TargetType)
 	if err != nil {
-		response.Fail(c, 500, "添加收藏失败")
+		switch {
+		case errors.Is(err, service.ErrFavoriteInvalidType), errors.Is(err, service.ErrFavoriteDuplicate):
+			response.Fail(c, 400, err.Error())
+		default:
+			response.Fail(c, 500, "添加收藏失败")
+		}
 		return
 	}
 	response.Success(c, nil)
@@ -46,7 +53,14 @@ func (h *FavoriteHandler) Remove(c *gin.Context) {
 	}
 
 	if err := h.svc.RemoveFavorite(uint(id), userID); err != nil {
-		response.Fail(c, 500, err.Error())
+		switch {
+		case errors.Is(err, service.ErrFavoriteForbidden):
+			response.Fail(c, http.StatusForbidden, err.Error())
+		case errors.Is(err, service.ErrFavoriteNotFound):
+			response.Fail(c, http.StatusNotFound, err.Error())
+		default:
+			response.Fail(c, http.StatusInternalServerError, "删除收藏失败")
+		}
 		return
 	}
 	response.Success(c, nil)
@@ -56,7 +70,7 @@ func (h *FavoriteHandler) ListFavorites(c *gin.Context) {
 	userID := c.GetUint("user_id")
 	favorites, err := h.svc.ListFavorites(userID)
 	if err != nil {
-		response.Fail(c, 500, err.Error())
+		response.Fail(c, 500, "获取收藏列表失败")
 		return
 	}
 	response.Success(c, favorites)

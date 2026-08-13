@@ -8,6 +8,7 @@ import (
 	"math-top/internal/dto"
 	"math-top/internal/model"
 	"mime/multipart"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,7 +27,7 @@ var allowedResourceExts = map[string]bool{
 	".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true,
 	".pdf": true, ".doc": true, ".docx": true, ".xls": true, ".xlsx": true,
 	".ppt": true, ".pptx": true, ".zip": true, ".txt": true, ".md": true,
-	".py": true, ".js": true, ".ts": true, ".json": true, ".csv": true,
+	".json": true, ".csv": true,
 }
 
 func NewResourceService(db *gorm.DB) *ResourceService {
@@ -99,7 +100,15 @@ func (s *ResourceService) GetForDownload(id uint64) (*model.Resource, error) {
 		if uploadBase == "" {
 			uploadBase = "./storage/uploads"
 		}
-		resource.FilePath = filepath.Join(uploadBase, strings.TrimPrefix(resource.FilePath, "/uploads/"))
+		baseAbs, err := filepath.Abs(uploadBase)
+		if err != nil {
+			return nil, errors.New("上传目录配置无效")
+		}
+		full := filepath.Clean(filepath.Join(baseAbs, strings.TrimPrefix(resource.FilePath, "/uploads/")))
+		if !strings.HasPrefix(full, baseAbs+string(os.PathSeparator)) {
+			return nil, errors.New("非法文件路径")
+		}
+		resource.FilePath = full
 	}
 	s.db.Model(&model.Resource{}).Where("id = ?", id).
 		UpdateColumn("download_count", gorm.Expr("download_count + 1"))
@@ -136,6 +145,13 @@ func (s *ResourceService) UploadFile(file *multipart.FileHeader, coverURL string
 		return nil, errors.New("打开文件失败")
 	}
 	defer src.Close()
+
+	if err := validateUploadContent(ext, src); err != nil {
+		return nil, err
+	}
+	if _, err := src.Seek(0, io.SeekStart); err != nil {
+		return nil, errors.New("读取文件失败")
+	}
 
 	dst, err := os.Create(savePath)
 	if err != nil {
@@ -178,6 +194,29 @@ func validateResourceUpload(fileName string, size int64) (string, error) {
 		return "", errors.New("不支持的文件格式")
 	}
 	return ext, nil
+}
+
+// validateUploadContent 校验文件内容与扩展名一致：读取文件头 512 字节，
+// 用 http.DetectContentType 嗅探真实类型，防止伪装文件上传。
+func validateUploadContent(ext string, src io.Reader) error {
+	head := make([]byte, 512)
+	n, err := io.ReadFull(src, head)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		return errors.New("读取文件失败")
+	}
+	ctype := http.DetectContentType(head[:n])
+
+	if strings.HasPrefix(ctype, "text/html") {
+		return errors.New("文件内容与扩展名不符")
+	}
+	imageExts := map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true}
+	if imageExts[ext] && !strings.HasPrefix(ctype, "image/") {
+		return errors.New("文件内容与扩展名不符")
+	}
+	if ext == ".pdf" && ctype != "application/pdf" && ctype != "application/octet-stream" {
+		return errors.New("文件内容与扩展名不符")
+	}
+	return nil
 }
 
 func (s *ResourceService) IncrementView(id uint) {

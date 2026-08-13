@@ -36,6 +36,9 @@ func (s *CommentService) Create(userID uint, p CreateCommentParams) (*model.Comm
 	if p.Content == "" {
 		return nil, errors.New("评论内容不能为空")
 	}
+	if len([]rune(p.Content)) > 2000 {
+		return nil, errors.New("评论内容不能超过 2000 字")
+	}
 	if !validTargetTypes[p.TargetType] {
 		return nil, errors.New("不支持的评论目标类型")
 	}
@@ -79,16 +82,18 @@ func (s *CommentService) ListByTarget(targetType string, targetID uint, page, pa
 	}
 	pageSize = normalizePageSize(pageSize)
 	var total int64
-	s.db.Model(&model.Comment{}).
+	if err := s.db.Model(&model.Comment{}).
 		Where("target_type = ? AND target_id = ? AND parent_id IS NULL AND status = 1", targetType, targetID).
-		Count(&total)
+		Count(&total).Error; err != nil {
+		return nil, 0, errors.New("获取评论数量失败")
+	}
 
 	var comments []model.Comment
 	if err := s.db.Where("target_type = ? AND target_id = ? AND parent_id IS NULL AND status = 1", targetType, targetID).
 		Order("id desc").
 		Offset((page - 1) * pageSize).Limit(pageSize).
 		Find(&comments).Error; err != nil {
-		return nil, 0, err
+		return nil, 0, errors.New("获取评论列表失败")
 	}
 
 	result := make([]CommentWithReplies, 0, len(comments))
@@ -102,13 +107,24 @@ func (s *CommentService) ListByTarget(targetType string, targetID uint, page, pa
 	return result, total, nil
 }
 
+var (
+	ErrCommentNotFound  = errors.New("评论不存在")
+	ErrCommentForbidden = errors.New("无权删除他人评论")
+)
+
 func (s *CommentService) Delete(userID, commentID uint) error {
-	res := s.db.Where("id = ? AND user_id = ?", commentID, userID).Delete(&model.Comment{})
-	if res.Error != nil {
-		return res.Error
+	var comment model.Comment
+	if err := s.db.First(&comment, commentID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrCommentNotFound
+		}
+		return err
 	}
-	if res.RowsAffected == 0 {
-		return errors.New("评论不存在或无权限")
+	if comment.UserID != userID {
+		return ErrCommentForbidden
+	}
+	if err := s.db.Delete(&model.Comment{}, commentID).Error; err != nil {
+		return err
 	}
 	return nil
 }
@@ -126,7 +142,9 @@ func (s *CommentService) ToggleLike(userID, commentID uint) (bool, error) {
 			UpdateColumn("like_count", gorm.Expr("GREATEST(like_count - 1, 0)"))
 		return false, nil
 	}
-	s.db.Create(&model.CommentLike{UserID: userID, CommentID: commentID})
+	if err := s.db.Create(&model.CommentLike{UserID: userID, CommentID: commentID}).Error; err != nil {
+		return false, errors.New("点赞失败")
+	}
 	s.db.Model(&model.Comment{}).Where("id = ?", commentID).
 		UpdateColumn("like_count", gorm.Expr("like_count + 1"))
 	return true, nil

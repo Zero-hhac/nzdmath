@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math-top/internal/cache"
 	"math-top/internal/config"
 	"math-top/internal/model"
+	"math-top/internal/ws"
 	"mime/multipart"
 	"os"
 	"path/filepath"
@@ -41,7 +43,7 @@ var chatImageExts = map[string]bool{
 }
 
 var chatFileExts = map[string]bool{
-	".txt": true, ".md": true, ".py": true, ".js": true, ".ts": true, ".json": true, ".csv": true,
+	".txt": true, ".md": true, ".json": true, ".csv": true,
 	".pdf": true, ".doc": true, ".docx": true, ".ppt": true, ".pptx": true,
 }
 
@@ -50,8 +52,21 @@ var chatVideoExts = map[string]bool{
 }
 
 type ChatService struct {
-	db    *gorm.DB
-	cache *cache.Cache
+	db        *gorm.DB
+	cache     *cache.Cache
+	broadcast func(event string, data interface{})
+}
+
+// SetBroadcast 注入广播回调（由 router 组装时挂上 WebSocket Hub）。
+// event: ws.TypeMessage / ws.TypePresence / ws.TypeDelete；nil 表示不广播（如单测）。
+func (s *ChatService) SetBroadcast(fn func(event string, data interface{})) {
+	s.broadcast = fn
+}
+
+func (s *ChatService) emit(event string, data interface{}) {
+	if s.broadcast != nil {
+		s.broadcast(event, data)
+	}
 }
 
 type ChatMessagesResult struct {
@@ -115,6 +130,7 @@ func (s *ChatService) Join(userID uint) (int64, error) {
 			return 0, err
 		}
 		s.cacheMessage(msg)
+		s.emit(ws.TypeMessage, s.fillUserInfo([]model.ChatMessage{msg})[0])
 	}
 	s.markOnline(userID, now)
 
@@ -277,6 +293,7 @@ func (s *ChatService) DeleteMessage(userID uint, messageID uint) error {
 		return errors.New("撤回失败")
 	}
 	s.cacheDeletion(messageID)
+	s.emit(ws.TypeDelete, []uint{messageID})
 	return nil
 }
 
@@ -289,6 +306,7 @@ func (s *ChatService) AdminDeleteMessage(messageID uint) error {
 		return errors.New("消息不存在或已被删除")
 	}
 	s.cacheDeletion(messageID)
+	s.emit(ws.TypeDelete, []uint{messageID})
 	return nil
 }
 
@@ -339,6 +357,7 @@ func (s *ChatService) SendText(userID uint, content string) (*model.ChatMessage,
 	s.cacheMessage(*msg)
 
 	filled := s.fillUserInfo([]model.ChatMessage{*msg})
+	s.emit(ws.TypeMessage, filled[0])
 	return &filled[0], nil
 }
 
@@ -392,6 +411,13 @@ func (s *ChatService) SendFile(userID uint, file *multipart.FileHeader) (*model.
 	}
 	defer src.Close()
 
+	if err := validateUploadContent(ext, src); err != nil {
+		return nil, err
+	}
+	if _, err := src.Seek(0, io.SeekStart); err != nil {
+		return nil, errors.New("读取文件失败")
+	}
+
 	dst, err := os.Create(savePath)
 	if err != nil {
 		return nil, errors.New("保存文件失败")
@@ -420,6 +446,7 @@ func (s *ChatService) SendFile(userID uint, file *multipart.FileHeader) (*model.
 	s.cacheMessage(*msg)
 
 	filled := s.fillUserInfo([]model.ChatMessage{*msg})
+	s.emit(ws.TypeMessage, filled[0])
 	return &filled[0], nil
 }
 
@@ -549,7 +576,7 @@ func (s *ChatService) fillUserInfo(messages []model.ChatMessage) []model.ChatMes
 
 	var users []model.User
 	if len(ids) > 0 {
-		s.db.Select("id, username, nickname, avatar").Where("id IN ?", ids).Find(&users)
+		s.db.Select("id, username, nickname, avatar, real_name, department").Where("id IN ?", ids).Find(&users)
 	}
 	umap := make(map[uint]model.User, len(users))
 	for _, user := range users {
@@ -560,6 +587,8 @@ func (s *ChatService) fillUserInfo(messages []model.ChatMessage) []model.ChatMes
 		if user, ok := umap[msg.UserID]; ok {
 			messages[i].UserName = displayName(&user)
 			messages[i].UserAvatar = user.Avatar
+			messages[i].RealName = user.RealName
+			messages[i].Department = user.Department
 		}
 	}
 	return messages

@@ -3,9 +3,11 @@ package service
 import (
 	"errors"
 	"fmt"
+	"io"
 	"math-top/internal/config"
 	"math-top/internal/model"
 	"mime/multipart"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,6 +26,10 @@ func NewAvatarService(db *gorm.DB) *AvatarService {
 
 var allowedImageExts = map[string]bool{
 	".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true,
+}
+
+var allowedImageContentTypes = map[string]bool{
+	"image/jpeg": true, "image/png": true, "image/gif": true, "image/webp": true,
 }
 
 func (s *AvatarService) Upload(userID uint, file *multipart.FileHeader) (string, error) {
@@ -53,6 +59,18 @@ func (s *AvatarService) Upload(userID uint, file *multipart.FileHeader) (string,
 		return "", errors.New("打开文件失败")
 	}
 	defer src.Close()
+
+	head := make([]byte, 512)
+	n, err := io.ReadFull(src, head)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		return "", errors.New("读取文件失败")
+	}
+	if !allowedImageContentTypes[http.DetectContentType(head[:n])] {
+		return "", errors.New("文件内容不是有效的图片")
+	}
+	if _, err := src.Seek(0, io.SeekStart); err != nil {
+		return "", errors.New("读取文件失败")
+	}
 
 	dst, err := os.Create(savePath)
 	if err != nil {

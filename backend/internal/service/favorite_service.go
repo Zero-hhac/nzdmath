@@ -18,23 +18,51 @@ func NewFavoriteService(db *gorm.DB) *FavoriteService {
 	}
 }
 
+var (
+	ErrFavoriteNotFound    = errors.New("收藏记录不存在")
+	ErrFavoriteForbidden   = errors.New("无权删除他人收藏记录")
+	ErrFavoriteInvalidType = errors.New("不支持的收藏类型")
+	ErrFavoriteDuplicate   = errors.New("已收藏，请勿重复收藏")
+)
+
+var validFavoriteTypes = map[string]bool{
+	"event": true, "news": true, "resource": true, "showcase": true,
+}
+
 func (s *FavoriteService) AddFavorite(userID uint, targetID uint, targetType string) error {
+	if !validFavoriteTypes[targetType] {
+		return ErrFavoriteInvalidType
+	}
+	var existing model.Favorite
+	err := s.db.Where("user_id = ? AND target_type = ? AND target_id = ?", userID, targetType, targetID).First(&existing).Error
+	if err == nil {
+		return ErrFavoriteDuplicate
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
 	fav := model.Favorite{
 		UserID:     userID,
 		TargetType: targetType,
 		TargetID:   targetID,
 	}
-	return s.db.Create(&fav).Error
+	if err := s.db.Create(&fav).Error; err != nil {
+		return errors.New("添加收藏失败")
+	}
+	return nil
 }
 
 func (s *FavoriteService) RemoveFavorite(favoriteID uint, userID uint) error {
 	var fav model.Favorite
 	err := s.db.First(&fav, favoriteID).Error
 	if err != nil {
-		return errors.New("收藏记录不存在")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrFavoriteNotFound
+		}
+		return err
 	}
 	if fav.UserID != userID {
-		return errors.New("无权删除他人收藏记录")
+		return ErrFavoriteForbidden
 	}
 
 	return s.db.Delete(&fav).Error

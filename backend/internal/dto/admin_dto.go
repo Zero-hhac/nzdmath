@@ -26,6 +26,7 @@ type AdminCreateEventRequest struct {
 	StartTime  time.Time `json:"start_time" binding:"required"`
 	EndTime    time.Time `json:"end_time" binding:"required"`
 	CoverURL   string    `json:"cover_url"`
+	Capacity   int       `json:"capacity" binding:"min=0,max=100000"` // 报名名额，0=不限
 	Status     int       `json:"status" binding:"oneof=0 1"`
 	IsFeatured bool      `json:"is_featured"`
 }

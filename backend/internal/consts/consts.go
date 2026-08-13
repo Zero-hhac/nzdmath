@@ -25,3 +25,14 @@ const (
 	CacheTTLDetail      = 600
 	CacheTTLDashboard   = 30
 )
+
+var Departments = []string{"组织部", "办公室", "宣传部", "外联部"}
+
+func IsValidDepartment(d string) bool {
+	for _, dep := range Departments {
+		if dep == d {
+			return true
+		}
+	}
+	return false
+}

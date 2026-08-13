@@ -19,12 +19,20 @@ func NewNewsHandler(svc *service.NewsService) *NewsHandler {
 }
 
 func (h *NewsHandler) List(c *gin.Context) {
-	news, err := h.svc.ListNews()
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
+	news, total, err := h.svc.ListNews(page, pageSize)
 	if err != nil {
 		response.Fail(c, 500, "获取新闻资讯失败")
 		return
 	}
-	response.Success(c, news)
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 10
+	}
+	response.PageSuccess(c, news, total, page, pageSize)
 }
 
 func (h *NewsHandler) Detail(c *gin.Context) {
