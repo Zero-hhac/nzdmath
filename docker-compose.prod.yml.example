@@ -1,18 +1,19 @@
-version: '3.8'
-
 services:
   mysql:
     image: mysql:8.0
     container_name: math-top-mysql
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
-      MYSQL_ROOT_PASSWORD: nzdmath123_db_password # 生产环境建议修改此密码！
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}
       MYSQL_DATABASE: math_top
     volumes:
       - mysql_data:/var/lib/mysql
-    ports:
-      - "127.0.0.1:3307:3306" # 生产环境只允许本地连接以提高安全性
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pnzdmath123_db_password"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_PASSWORD}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -22,10 +23,13 @@ services:
   redis:
     image: redis:7-alpine
     container_name: math-top-redis
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     volumes:
       - redis_data:/data
-    ports:
-      - "127.0.0.1:6380:6379" # 生产环境仅绑定本地以保护 Redis 安全
     networks:
       - math-top-network
 
@@ -34,6 +38,11 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: math-top-backend
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       mysql:
         condition: service_healthy
@@ -41,10 +50,20 @@ services:
         condition: service_started
     environment:
       - APP_ENV=docker
+      - APP_MODE=release
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}
+      - JWT_SECRET=${JWT_SECRET:?set JWT_SECRET in .env}
+      - ADMIN_INITIAL_PASSWORD=${ADMIN_INITIAL_PASSWORD:-}
     volumes:
       - ./backend/storage/uploads:/app/storage/uploads
     expose:
       - "8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
     networks:
       - math-top-network
 
@@ -53,6 +72,11 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: math-top-nginx
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "80:80"     # 监听 HTTP 端口以进行 HTTPS 重定向
       - "443:443"   # 监听 HTTPS 端口
@@ -62,7 +86,8 @@ services:
       # 挂载宿主机上的 SSL 证书存放目录（将证书文件放至宿主机的 ./ssl 文件夹中）
       - ./ssl:/etc/nginx/ssl:ro
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - math-top-network
 

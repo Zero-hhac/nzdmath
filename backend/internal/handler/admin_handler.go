@@ -50,6 +50,26 @@ func (h *AdminHandler) Logout(c *gin.Context) {
 	response.Success(c, nil)
 }
 
+type AdminChangePasswordRequest struct {
+	OldPassword string `json:"old_password" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required"`
+}
+
+// ChangePassword 管理员自助修改密码（后台“账号设置”）
+func (h *AdminHandler) ChangePassword(c *gin.Context) {
+	adminID := c.GetUint("user_id")
+	var req AdminChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Fail(c, 400, "参数错误")
+		return
+	}
+	if err := h.svc.ChangePassword(adminID, req.OldPassword, req.NewPassword); err != nil {
+		response.Fail(c, 400, err.Error())
+		return
+	}
+	response.Success(c, nil)
+}
+
 func (h *AdminHandler) Dashboard(c *gin.Context) {
 	data, err := h.svc.GetDashboard()
 	if err != nil {
@@ -62,6 +82,7 @@ func (h *AdminHandler) Dashboard(c *gin.Context) {
 		"trend_7days":    data.Trend,
 		"today_activity": data.TodayActivity,
 		"activity_trend": data.Activity,
+		"total_activity": data.TotalActivity,
 		"user_count":     data.Counts.Users,
 		"event_count":    data.Counts.Events,
 		"news_count":     data.Counts.News,

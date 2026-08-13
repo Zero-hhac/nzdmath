@@ -1,5 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
+import {
+  ArrowRight,
+  ArrowUpRight,
+  Award,
+  BookMarked,
+  CalendarDays,
+  GalleryVerticalEnd,
+  GraduationCap,
+  Info,
+  Sparkles,
+  Trophy,
+  Users,
+} from 'lucide-react';
 import { Formula } from '@/src/components/Formula';
 import type { ViewProps } from '@/src/types/app';
 import { api } from '@/src/lib/api';
@@ -12,6 +25,33 @@ type HomeData = {
   featured_resources?: any[];
   recent_showcases?: any[];
 };
+
+type EventItem = {
+  id: number | string;
+  title: string;
+  summary?: string;
+  category?: string;
+  location?: string;
+  start_time?: string;
+  end_time?: string;
+  cover_url?: string;
+  status?: number;
+  is_featured?: boolean;
+};
+
+const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+
+function formatEventDate(iso?: string) {
+  if (!iso) return { date: '—', time: '—', weekday: '', monthDay: '' };
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return { date: '—', time: '—', weekday: '', monthDay: '' };
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return {
+    monthDay: `${d.getMonth() + 1}月${d.getDate()}日`,
+    weekday: WEEKDAYS[d.getDay()],
+    time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+  };
+}
 
 export const HomeView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
   const [data, setData] = useState<HomeData | null>(null);
@@ -31,12 +71,61 @@ export const HomeView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
   const recentNews = (data?.recent_news || []).slice(0, 3);
   const featuredResources = (data?.featured_resources || []).slice(0, 3);
 
+  const nextEvent: EventItem | null = useMemo(() => {
+    if (!data) return null;
+    const now = Date.now();
+    const pool: EventItem[] = [
+      ...(data.featured_events || []),
+      ...(data.recent_events || []),
+    ];
+    const upcoming = pool
+      .filter((e) => e?.start_time && new Date(e.start_time).getTime() >= now)
+      .sort((a, b) => new Date(a.start_time!).getTime() - new Date(b.start_time!).getTime());
+    if (upcoming.length > 0) return upcoming[0];
+    return pool[0] || null;
+  }, [data]);
+
+  const eventsCount = data?.recent_events?.length || data?.featured_events?.length || 0;
+  const resourcesCount = data?.featured_resources?.length || 0;
+  const showcaseCount = data?.recent_showcases?.length || 0;
+
   const quickLinks = [
-    { title: '近期活动', desc: '查看本周讲座、工作坊与竞赛安排。', action: '前往活动中心', tab: 'events' as const, icon: 'event' },
-    { title: '重点资源', desc: '快速进入讲义、模板、课程笔记与档案。', action: '浏览资源库', tab: 'resources' as const, icon: 'library_books' },
-    { title: '会员服务', desc: '解锁内部存档、导师预约与协作入口。', action: '进入会员专区', tab: 'portal' as const, icon: 'workspace_premium' },
-    { title: '作品档案', desc: '查看竞赛作品、可视化成果与优秀手稿。', action: '打开档案馆', tab: 'showcase' as const, icon: 'gallery_thumbnail' },
+    { title: '近期活动', desc: '查看本周讲座、工作坊与竞赛安排。', action: '前往活动中心', tab: 'events' as const, icon: 'event', badge: '新人起点' as (string | null), tone: 'blue', kicker: 'EVENTS', meta: `${eventsCount} 场进行中`, mark: '01' },
+    { title: '重点资源', desc: '快速进入讲义、模板、课程笔记与档案。', action: '浏览资源库', tab: 'resources' as const, icon: 'library_books', badge: null, tone: 'green', kicker: 'RESOURCES', meta: resourcesCount > 0 ? `${resourcesCount} 份精选` : '资源存档', mark: '02' },
+    { title: '会员服务', desc: '解锁内部存档、导师预约与协作入口。', action: '进入会员专区', tab: 'portal' as const, icon: 'workspace_premium', badge: null, tone: 'red', kicker: 'MEMBER', meta: '登录后解锁', mark: '03' },
+    { title: '作品档案', desc: '查看竞赛作品、可视化成果与优秀手稿。', action: '打开档案馆', tab: 'showcase' as const, icon: 'gallery_thumbnail', badge: null, tone: 'gold', kicker: 'ARCHIVE', meta: `${showcaseCount} 件作品`, mark: '04' },
   ];
+
+  const quickTones: Record<string, { card: string; icon: string; mark: string; arrow: string; edge: string }> = {
+    blue: {
+      card: '!border-[#c7d8e6]/80 !bg-[#f5f9fc]/70 hover:!bg-[#eaf3f9]/80',
+      icon: 'bg-[#dceaf5]/80 text-[#527a96]',
+      mark: 'text-[#6f91a8]',
+      arrow: 'bg-white/70 text-[#527a96] group-hover:bg-[#dceaf5] group-hover:text-[#3f607a]',
+      edge: 'bg-gradient-to-r from-white/80 via-[#dceaf5]/60 to-transparent',
+    },
+    green: {
+      card: '!border-[#d3e2d2]/80 !bg-[#f5faf4]/70 hover:!bg-[#eaf4ea]/80',
+      icon: 'bg-[#e0ece0]/80 text-[#5f7f63]',
+      mark: 'text-[#789a7c]',
+      arrow: 'bg-white/70 text-[#5f7f63] group-hover:bg-[#e0ece0] group-hover:text-[#47694b]',
+      edge: 'bg-gradient-to-r from-white/80 via-[#e0ece0]/60 to-transparent',
+    },
+    red: {
+      card: '!border-[#ead5d1]/80 !bg-[#fcf7f5]/70 hover:!bg-[#f8ece8]/80',
+      icon: 'bg-[#f3e1dd]/80 text-[#8f625b]',
+      mark: 'text-[#a67a72]',
+      arrow: 'bg-white/70 text-[#8f625b] group-hover:bg-[#f3e1dd] group-hover:text-[#774d46]',
+      edge: 'bg-gradient-to-r from-white/80 via-[#f3e1dd]/60 to-transparent',
+    },
+    gold: {
+      card: '!border-[#eadfbe]/80 !bg-[#fbf8ed]/70 hover:!bg-[#f6efd8]/80',
+      icon: 'bg-[#f1e6c9]/80 text-[#8a7145]',
+      mark: 'text-[#a38b5e]',
+      arrow: 'bg-white/70 text-[#8a7145] group-hover:bg-[#f1e6c9] group-hover:text-[#6f5934]',
+      edge: 'bg-gradient-to-r from-white/80 via-[#f1e6c9]/60 to-transparent',
+    },
+  };
 
   const featuredEntries = [];
   if (featuredEvents.length > 0) {
@@ -57,6 +146,11 @@ export const HomeView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
       title: '新成员路径',
       desc: '从零开始认识协会、了解入会流程、规划你的第一条学习路径。',
       action: '查看加入流程',
+      steps: [
+        { index: '01', label: '提交意向', text: '填写基础信息与感兴趣方向。' },
+        { index: '02', label: '参加迎新沙龙', text: '了解协会节奏与导师体系。' },
+        { index: '03', label: '解锁会员权限', text: '获得内部资源与协作入口。' },
+      ],
       onClick: () =>
         openOverlay({
           title: '加入数爱会',
@@ -84,8 +178,18 @@ export const HomeView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
     },
     {
       title: '本周推荐',
-      desc: '把近期最值得参加的活动、最热门的讨论和最新公告合并到一个工作台里。',
+      desc: '把近期最值得参加的活动、最热门的讨论和最新公告合并到一处。',
       action: '打开本周推荐',
+      picks: [
+        ...((data?.recent_events || []).slice(0, 2).map((ev: any) => ({
+          kind: '活动' as const,
+          title: ev.title,
+        }))),
+        ...((data?.recent_news || []).slice(0, 2).map((nw: any) => ({
+          kind: '资讯' as const,
+          title: nw.title,
+        }))),
+      ],
       onClick: () =>
         openOverlay({
           title: '本周推荐',
@@ -114,34 +218,38 @@ export const HomeView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
   return (
     <div className="space-y-32 py-12">
       {/* Hero Section */}
-      <section className="grid lg:grid-cols-12 gap-12 lg:gap-8 items-center min-h-[70vh]">
+      <section className="grid lg:grid-cols-12 gap-10 lg:gap-8 items-center min-h-[70vh]">
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           className="lg:col-span-7 flex flex-col justify-center"
         >
-          <div className="inline-flex items-center px-3 py-1 bg-pastel-blue text-pastel-blue-text text-[11px] uppercase tracking-[0.15em] font-medium rounded-full w-fit mb-8">
-            官方门户
+          <div className="eyebrow-accent mb-6">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+            广西农业职业技术大学 · 数爱会
           </div>
 
-          <h1 className="display-title mb-8">
-            探索无限可能
+          <h1 className="display-title mb-7">
+            一起学数学，<br className="hidden md:block" />
+            比一个人<span className="text-accent">走得更远</span>。
           </h1>
 
-          <p className="text-[1.1rem] leading-[1.8] text-charcoal-muted max-w-xl font-medium mb-10">
-            广西农业职业技术大学数学爱好者协会（简称数爱会）是交流数学史、数学文化、数学建模、数学竞赛和考研备战经验的学习型社团。我们以“交流思想、提高能力、团队协作、开拓创新”为宗旨，汇聚同路人共同成长。
+          <p className="text-[1.05rem] leading-[1.85] text-charcoal-muted max-w-xl font-medium mb-10">
+            我们是校园里一群喜欢数学的人——讲拓扑、聊数论、组队建模、刷考研真题。每周都有活动、每年都有竞赛、随时都能找到同路人。
           </p>
 
-          <div className="flex flex-wrap gap-4">
-            <button onClick={() => navigate('events')} className="btn-primary group">
+          <div className="flex flex-wrap gap-3">
+            <button onClick={() => navigate('events')} className="btn-accent group">
+              <CalendarDays className="h-[18px] w-[18px]" />
               查看近期活动
-              <div className="btn-icon-wrapper">
-                <span className="material-symbols-outlined text-[16px] text-charcoal">arrow_forward</span>
+              <div className="btn-icon-wrapper !bg-white/15">
+                <ArrowRight className="h-4 w-4 text-white" />
               </div>
             </button>
-            <button onClick={() => navigate('resources')} className="btn-secondary">
-              浏览重点资源
+            <button onClick={() => navigate('about')} className="btn-secondary">
+              <Info className="h-4 w-4" />
+              了解我们
             </button>
           </div>
         </motion.div>
@@ -152,28 +260,80 @@ export const HomeView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
           transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
           className="lg:col-span-5 relative w-full"
         >
-           <div className="doppel-shell w-full min-h-[360px] flex items-center justify-center cursor-default">
-             <div className="doppel-core w-full h-full flex flex-col items-center justify-center p-8 gap-8 relative overflow-hidden">
-                <div className="absolute top-6 left-6 text-text-muted opacity-30">
-                  <Formula expression={String.raw`\int e^{-x^2}\,dx`} className="text-xl" />
+          <div className="bento-card !p-7 relative overflow-hidden">
+            <div className="flex items-center justify-between mb-5">
+              <span className="eyebrow-accent !bg-accent !text-white !text-[10px]">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                下一场活动
+              </span>
+              {nextEvent?.category && (
+                <span className="text-[10px] uppercase tracking-[0.18em] text-text-muted font-bold">
+                  {nextEvent.category}
+                </span>
+              )}
+            </div>
+
+            {nextEvent ? (
+              <>
+                <h3 className="text-2xl font-medium tracking-tight text-charcoal leading-snug mb-4 line-clamp-2">
+                  {nextEvent.title}
+                </h3>
+                {nextEvent.summary && (
+                  <p className="text-sm text-charcoal-muted leading-relaxed mb-6 line-clamp-2">
+                    {nextEvent.summary}
+                  </p>
+                )}
+
+                <div className="flex items-end gap-6 pt-5 border-t border-border">
+                  {(() => {
+                    const f = formatEventDate(nextEvent.start_time);
+                    return (
+                      <div>
+                        <div className="text-[10px] uppercase tracking-[0.2em] text-text-muted font-bold mb-1">时间</div>
+                        <div className="text-xl font-semibold text-accent tracking-tight">
+                          {f.monthDay}
+                          <span className="ml-2 text-sm font-medium text-text-muted">{f.weekday}</span>
+                        </div>
+                        <div className="text-sm text-charcoal-muted mt-0.5">{f.time} 始</div>
+                      </div>
+                    );
+                  })()}
+                  {nextEvent.location && (
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[10px] uppercase tracking-[0.2em] text-text-muted font-bold mb-1">地点</div>
+                      <div className="text-sm font-medium text-charcoal truncate">{nextEvent.location}</div>
+                    </div>
+                  )}
                 </div>
-                <div className="absolute bottom-6 right-6 text-text-muted opacity-30">
-                  <Formula expression={String.raw`e^{i\pi}+1=0`} className="text-xl" />
-                </div>
-                
-                <div className="text-center z-10">
-                  <div className="text-5xl font-light text-charcoal mb-2 tracking-tight">500+</div>
-                  <div className="text-[10px] uppercase tracking-[0.2em] text-text-muted font-bold">活跃成员</div>
-                </div>
-                
-                <div className="w-16 h-px bg-border"></div>
-                
-                <div className="text-center z-10">
-                  <div className="text-4xl font-light text-charcoal mb-2 tracking-tight">200+</div>
-                  <div className="text-[10px] uppercase tracking-[0.2em] text-text-muted font-bold">学术资源</div>
-                </div>
-             </div>
-           </div>
+
+                <button
+                  onClick={() => navigate('events')}
+                  className="mt-6 w-full btn-ghost justify-center"
+                >
+                  查看活动详情
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              </>
+            ) : (
+              <div className="py-10 text-center">
+                <div className="text-text-muted text-sm">暂无安排中的活动，去活动中心看看？</div>
+                <button onClick={() => navigate('events')} className="btn-ghost mt-4">
+                  浏览活动中心
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 mt-4">
+            <div className="bento-card !p-4 text-center !border-pastel-blue !bg-pastel-blue/20">
+              <div className="text-2xl font-semibold text-charcoal tracking-tight">2022</div>
+              <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted font-bold mt-1">协会成立</div>
+            </div>
+            <div className="bento-card !p-4 text-center !border-pastel-green !bg-pastel-green/20">
+              <div className="text-2xl font-semibold text-charcoal tracking-tight">4</div>
+              <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted font-bold mt-1">核心职能部门</div>
+            </div>
+          </div>
         </motion.div>
       </section>
 
@@ -199,18 +359,44 @@ export const HomeView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
               onClick={() => navigate(item.tab)}
               initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
+              whileHover={{ y: -6, scale: 1.01 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: i * 0.1, ease: [0.16, 1, 0.3, 1] }}
-              className="bento-card text-left group"
+              className={`bento-card text-left group relative overflow-hidden ${quickTones[item.tone]?.card || ''}`}
             >
-              <div className="mb-6 w-10 h-10 rounded-lg bg-black/[0.04] flex items-center justify-center text-charcoal">
-                <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
+              <span className={`pointer-events-none absolute inset-x-0 top-0 h-1 ${quickTones[item.tone]?.edge || ''}`} />
+              <span className={`pointer-events-none absolute -right-4 -bottom-9 select-none font-serif text-[7rem] font-semibold leading-none opacity-[0.10] ${quickTones[item.tone]?.mark || ''}`}>
+                {item.mark}
+              </span>
+              {item.badge && (
+                  <span className="absolute top-5 right-5 z-10 inline-flex items-center gap-1 rounded-full bg-accent text-white px-2.5 py-0.5 text-[10px] font-semibold tracking-wide">
+                  <Sparkles className="h-3 w-3" />
+                  {item.badge}
+                </span>
+              )}
+              <div className="relative flex items-center justify-between gap-3">
+                <span className={`text-[10px] font-bold uppercase tracking-[0.2em] ${quickTones[item.tone]?.mark || 'text-text-muted'}`}>
+                  {item.kicker}
+                </span>
+                <span className="rounded-full bg-white/70 px-2.5 py-1 text-[10px] font-semibold text-charcoal-muted shadow-sm backdrop-blur-md">
+                  {item.meta}
+                </span>
               </div>
-              <h3 className="text-xl font-medium tracking-tight text-charcoal mb-3">{item.title}</h3>
-              <p className="text-[13px] leading-relaxed text-text-muted">{item.desc}</p>
-              <div className="mt-8 inline-flex items-center gap-2 text-[13px] font-bold text-charcoal group-hover:text-pastel-blue-text transition-colors">
-                {item.action}
-                <span className="material-symbols-outlined text-[16px] transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5">north_east</span>
+              <div className={`relative mb-6 mt-6 w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm ${quickTones[item.tone]?.icon || 'bg-black/[0.04] text-charcoal'}`}>
+                {item.icon === 'event' && <CalendarDays className="h-5 w-5" />}
+                {item.icon === 'library_books' && <BookMarked className="h-5 w-5" />}
+                {item.icon === 'workspace_premium' && <Award className="h-5 w-5" />}
+                {item.icon === 'gallery_thumbnail' && <GalleryVerticalEnd className="h-5 w-5" />}
+              </div>
+              <h3 className="relative text-xl font-semibold tracking-tight text-charcoal mb-3">{item.title}</h3>
+              <p className="relative min-h-[3.75rem] text-[13px] leading-relaxed text-charcoal-muted">{item.desc}</p>
+              <div className="relative mt-7 flex items-center justify-between border-t border-black/[0.06] pt-4">
+                <span className={`text-[13px] font-bold transition-colors ${quickTones[item.tone]?.mark || 'text-charcoal'}`}>
+                  {item.action}
+                </span>
+                <span className={`flex h-8 w-8 items-center justify-center rounded-full transition-all duration-300 ${quickTones[item.tone]?.arrow || 'bg-black/[0.05]'}`}>
+                  <ArrowUpRight className="h-4 w-4" />
+                </span>
               </div>
             </motion.button>
           ))}
@@ -241,7 +427,7 @@ export const HomeView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
                     <p className="text-sm text-text-muted leading-relaxed">{item.desc}</p>
                   </div>
                   <div className="w-8 h-8 rounded-full bg-black/[0.02] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                    <ArrowRight className="h-4 w-4" />
                   </div>
                 </div>
               </button>
@@ -250,12 +436,43 @@ export const HomeView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
         </div>
 
         <div className="lg:col-span-5 space-y-6">
-          {curatedEntries.map((item) => (
-            <div key={item.title} className="bento-card !p-8">
-              <h3 className="text-xl font-medium tracking-tight text-charcoal mb-3">{item.title}</h3>
-              <p className="text-[13px] leading-relaxed text-text-muted mb-6">{item.desc}</p>
-              <button onClick={item.onClick} className="btn-secondary !text-xs !py-2 !px-4">
+          {curatedEntries.map((item: any) => (
+            <div key={item.title} className="bento-card !p-7">
+              <h3 className="text-lg font-medium tracking-tight text-charcoal mb-2">{item.title}</h3>
+              <p className="text-[13px] leading-relaxed text-text-muted mb-5">{item.desc}</p>
+
+              {item.steps && (
+                <div className="space-y-2.5 mb-5">
+                  {item.steps.map((s: any) => (
+                    <div key={s.index} className="flex items-start gap-3 text-sm">
+                      <span className="shrink-0 w-7 h-7 rounded-full bg-accent-soft text-accent text-xs font-bold flex items-center justify-center tracking-wider">
+                        {s.index}
+                      </span>
+                      <div className="pt-0.5">
+                        <span className="font-semibold text-charcoal">{s.label}</span>
+                        <span className="text-text-muted ml-1.5">{s.text}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {item.picks && item.picks.length > 0 && (
+                <ul className="space-y-2 mb-5">
+                  {item.picks.map((p: any, i: number) => (
+                    <li key={i} className="flex items-start gap-2.5 text-sm">
+                      <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wide ${p.kind === '活动' ? 'bg-pastel-blue text-pastel-blue-text' : 'bg-pastel-green text-pastel-green-text'}`}>
+                        {p.kind}
+                      </span>
+                      <span className="text-charcoal-muted line-clamp-1 flex-1">{p.title}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <button onClick={item.onClick} className="btn-ghost !text-xs !py-2 !px-4 mt-2">
                 {item.action}
+                <ArrowRight className="h-3.5 w-3.5" />
               </button>
             </div>
           ))}
@@ -275,34 +492,71 @@ export const HomeView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
           <p className="text-charcoal-muted leading-relaxed font-medium">融合学术严谨与现代连接，让内容、活动与协作彼此支撑。</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bento-card md:col-span-2 flex flex-col justify-between">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bento-card flex flex-col justify-between !p-8 md:!p-10">
             <div>
-              <div className="w-10 h-10 rounded-lg bg-pastel-blue text-pastel-blue-text flex items-center justify-center mb-6">
-                <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+              <div className="w-11 h-11 rounded-xl bg-accent-soft text-accent flex items-center justify-center mb-6">
+                <Sparkles className="h-[22px] w-[22px]" />
               </div>
-              <h3 className="text-2xl font-medium tracking-tight text-charcoal mb-4">学术卓越</h3>
-              <p className="text-charcoal-muted leading-relaxed max-w-md text-sm">
-                提供深度理论探讨空间，涵盖拓扑学、数论与现代代数。我们致力于推动纯粹数学的边界，为学者提供一流的研讨平台。
+              <h3 className="text-2xl font-medium tracking-tight text-charcoal mb-3">学术卓越</h3>
+              <p className="text-charcoal-muted leading-relaxed text-sm">
+                提供深度理论探讨空间，涵盖拓扑学、数论与现代代数。每两周一次的研讨会与读书会，是纯粹数学爱好者的主场。
               </p>
             </div>
-            <div className="flex gap-2 pt-8 mt-auto">
+            <div className="flex flex-wrap gap-1.5 pt-6 mt-4 border-t border-border">
               <span className="tag-kinpaku">拓扑学</span>
               <span className="tag-kinpaku">泛函分析</span>
-              <span className="tag-kinpaku">代数拓补</span>
+              <span className="tag-kinpaku">代数几何</span>
             </div>
           </div>
 
-          <div className="bento-card flex flex-col justify-between">
+          <div className="bento-card flex flex-col justify-between !p-8 md:!p-10">
             <div>
-              <div className="w-10 h-10 rounded-lg bg-pastel-green text-pastel-green-text flex items-center justify-center mb-6">
-                <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>groups</span>
+              <div className="w-11 h-11 rounded-xl bg-pastel-green text-pastel-green-text flex items-center justify-center mb-6">
+                <Users className="h-[22px] w-[22px]" />
               </div>
-              <h3 className="text-2xl font-medium tracking-tight text-charcoal mb-4">社区连接</h3>
+              <h3 className="text-2xl font-medium tracking-tight text-charcoal mb-3">社区连接</h3>
               <p className="text-charcoal-muted leading-relaxed text-sm">
-                打破孤岛，建立跨学科的对话机制。定期的学术沙龙与在线工作坊，让思想在这里碰撞出新的火花。
+                打破孤岛，建立跨学科的对话机制。定期的学术沙龙、在线工作坊与晚间讨论室，让想法在这里碰撞。
               </p>
             </div>
+            <div className="pt-6 mt-4 border-t border-border text-xs text-text-muted">
+              <span className="font-semibold text-charcoal">每周</span> · 沙龙 · 读书会 · 跨组讨论
+            </div>
+          </div>
+
+          <div className="bento-card flex flex-col justify-between !p-8 md:!p-10">
+            <div>
+              <div className="w-11 h-11 rounded-xl bg-pastel-red text-pastel-red-text flex items-center justify-center mb-6">
+                <Trophy className="h-[22px] w-[22px]" />
+              </div>
+              <h3 className="text-2xl font-medium tracking-tight text-charcoal mb-3">竞赛战绩</h3>
+              <p className="text-charcoal-muted leading-relaxed text-sm">
+                数学建模、国赛、考研数学——历年都有学长学姐带队备赛。我们整理了历年真题、参考解答与内部培训讲义。
+              </p>
+            </div>
+            <div className="pt-6 mt-4 border-t border-border text-xs text-text-muted">
+              <span className="font-semibold text-charcoal">每年</span> · 校赛 · 区域赛 · 国赛
+            </div>
+          </div>
+
+          <div className="bento-card flex flex-col justify-between !p-8 md:!p-10">
+            <div>
+              <div className="w-11 h-11 rounded-xl bg-pastel-blue text-pastel-blue-text flex items-center justify-center mb-6">
+                <GraduationCap className="h-[22px] w-[22px]" />
+              </div>
+              <h3 className="text-2xl font-medium tracking-tight text-charcoal mb-3">会员成长</h3>
+              <p className="text-charcoal-muted leading-relaxed text-sm">
+                注册会员可解锁内部存档、导师预约与小组协作入口。我们用一条清晰的学习路径，陪每位新同学走完第一年。
+              </p>
+            </div>
+            <button
+              onClick={() => navigate('portal')}
+              className="self-start pt-6 mt-4 border-t border-border w-full text-left text-xs text-text-muted hover:text-accent transition-colors flex items-center justify-between"
+            >
+              <span><span className="font-semibold text-charcoal">会员专享</span> · 内部资源 · 导师 1v1</span>
+              <ArrowRight className="h-4 w-4" />
+            </button>
           </div>
         </div>
       </motion.section>

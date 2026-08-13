@@ -109,3 +109,24 @@ func (h *AdminEventHandler) ToggleFeature(c *gin.Context) {
 	}
 	response.Success(c, nil)
 }
+
+// SetExpired 管理员手动设置活动过期状态（公开列表下线/禁止报名，名单与记录仍可见）
+func (h *AdminEventHandler) SetExpired(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Fail(c, 400, "无效的活动 ID")
+		return
+	}
+	var req struct {
+		IsExpired bool `json:"is_expired"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Fail(c, 400, "参数错误")
+		return
+	}
+	if err := h.svc.SetExpired(uint(id), req.IsExpired); err != nil {
+		response.Fail(c, 400, err.Error())
+		return
+	}
+	response.Success(c, gin.H{"is_expired": req.IsExpired})
+}

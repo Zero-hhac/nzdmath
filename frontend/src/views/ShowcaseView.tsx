@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Search, Heart, ArrowRight } from 'lucide-react';
+import { Search, Heart, ArrowRight, PlayCircle, Presentation, X } from 'lucide-react';
 import { AsyncMarkdownViewer } from '@/src/components/AsyncMarkdownViewer';
 import type { ViewProps } from '@/src/types/app';
 import { api } from '@/src/lib/api';
@@ -54,7 +54,7 @@ export const ShowcaseView: React.FC<ViewProps> = ({ navigate, openOverlay }) => 
       <div className="page-intro flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div className="space-y-2">
           <div className="section-kicker">Showcase Archive</div>
-          <h1 className="font-serif text-4xl text-primary md:text-5xl">数韵之美 - 作品档案馆</h1>
+          <h1 className="section-title">数韵之美 · 作品档案馆</h1>
           <p className="section-subtitle">汇集竞赛作品、可视化成果与优秀手稿。</p>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -66,14 +66,14 @@ export const ShowcaseView: React.FC<ViewProps> = ({ navigate, openOverlay }) => 
       <div className="flex flex-col gap-6 lg:flex-row">
         <aside className="w-full space-y-6 lg:w-72">
           <div className="sidebar-panel">
-            <h3 className="mb-4 border-b border-white/50 pb-3 font-serif text-xl text-primary">领域分类</h3>
+            <h3 className="mb-4 border-b border-border pb-3 text-lg font-medium tracking-tight text-charcoal">领域分类</h3>
             <div className="space-y-2">
               {categories.map((item) => (
                 <button
                   key={item}
                   onClick={() => setField(item)}
                   className={`w-full rounded-xl px-4 py-2 text-left text-sm font-medium transition-all ${
-                    field === item ? 'bg-primary-container text-primary' : 'text-[#5d6d77] hover:bg-white/55'
+                    field === item ? 'bg-accent-soft text-accent' : 'text-text-muted hover:bg-canvas-alt hover:text-charcoal'
                   }`}
                 >
                   {item}
@@ -83,7 +83,7 @@ export const ShowcaseView: React.FC<ViewProps> = ({ navigate, openOverlay }) => 
           </div>
 
           <div className="sidebar-panel">
-            <h3 className="mb-4 border-b border-white/50 pb-3 font-serif text-xl text-primary">热门标签</h3>
+            <h3 className="mb-4 border-b border-border pb-3 text-lg font-medium tracking-tight text-charcoal">热门标签</h3>
             <div className="flex flex-wrap gap-2">
               {['# 黎曼猜想', '# 庞加莱猜想', '# 分形几何', '# 组合数学'].map((tag) => (
                 <span key={tag} className="math-tag">{tag}</span>
@@ -93,7 +93,7 @@ export const ShowcaseView: React.FC<ViewProps> = ({ navigate, openOverlay }) => 
         </aside>
 
         <section className="min-w-0 flex-1 space-y-8">
-          <div className="page-intro flex flex-col gap-4 p-5 xl:flex-row xl:items-center xl:justify-between">
+            <div className="page-intro flex flex-col gap-4 !p-5 xl:flex-row xl:items-center xl:justify-between">
             <div className="relative w-full xl:max-w-xs">
               <input
                 type="text"
@@ -128,7 +128,7 @@ export const ShowcaseView: React.FC<ViewProps> = ({ navigate, openOverlay }) => 
                     {item.cover_url ? (
                       <img src={item.cover_url} alt={item.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
                     ) : (
-                      <div className="h-full w-full bg-gradient-to-br from-[#e3f2fd] to-[#d5e3fc] flex items-center justify-center text-primary text-2xl font-serif">
+                      <div className="h-full w-full bg-gradient-to-br from-accent-soft to-white flex items-center justify-center text-accent text-2xl font-medium">
                         {item.title?.[0] || '作'}
                       </div>
                     )}
@@ -139,8 +139,8 @@ export const ShowcaseView: React.FC<ViewProps> = ({ navigate, openOverlay }) => 
                     )}
                     {item.h5_url && (
                       <div className="absolute right-4 top-4 z-10">
-                        <span className="math-tag !bg-amber-500 !text-white flex items-center gap-1 font-semibold shadow-sm">
-                          <span className="material-symbols-outlined text-[14px]">play_circle</span>
+                        <span className="math-tag !border-accent/20 !bg-accent !text-white flex items-center gap-1 font-semibold shadow-sm">
+                          <PlayCircle className="h-3.5 w-3.5" />
                           H5 演示
                         </span>
                       </div>
@@ -151,10 +151,10 @@ export const ShowcaseView: React.FC<ViewProps> = ({ navigate, openOverlay }) => 
                           e.stopPropagation();
                           setActiveH5Url(item.h5_url || null);
                         }}
-                        className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300 z-10"
+                        className="absolute inset-0 bg-accent/45 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300 z-10"
                       >
                         <div className="flex items-center gap-2 rounded-full bg-white/90 px-5 py-2.5 text-sm font-semibold text-primary shadow-lg hover:scale-105 transition-all">
-                          <span className="material-symbols-outlined text-[18px]">play_circle</span>
+                          <PlayCircle className="h-[18px] w-[18px]" />
                           立即播放演示
                         </div>
                       </button>
@@ -163,12 +163,12 @@ export const ShowcaseView: React.FC<ViewProps> = ({ navigate, openOverlay }) => 
 
                   <div className="flex flex-col gap-4 p-6">
                     <div>
-                      <h2 className="mb-2 line-clamp-2 font-serif text-xl leading-snug text-primary">{item.title}</h2>
-                      <p className="mb-3 text-sm font-semibold text-[#606f78]">作者：{item.author || '匿名'}</p>
+                      <h2 className="mb-2 line-clamp-2 text-xl font-medium tracking-tight leading-snug text-charcoal">{item.title}</h2>
+                      <p className="mb-3 text-sm font-semibold text-text-muted">作者：{item.author || '匿名'}</p>
                       <p className="line-clamp-3 text-sm font-medium leading-7 text-soft-body">{item.summary}</p>
                     </div>
 
-                    <div className="flex items-center justify-between border-t border-white/50 pt-4">
+                    <div className="flex items-center justify-between border-t border-border pt-4">
                       <button
                         onClick={() => openOverlay({
                           title: item.title,
@@ -181,10 +181,10 @@ export const ShowcaseView: React.FC<ViewProps> = ({ navigate, openOverlay }) => 
                                 </div>
                               )}
                               {item.h5_url && (
-                                <div className="flex items-center justify-between p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20">
+                                <div className="flex flex-col items-start justify-between gap-4 p-4 rounded-2xl bg-accent-soft border border-accent/10 sm:flex-row sm:items-center">
                                   <div className="flex items-center gap-3">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600">
-                                      <span className="material-symbols-outlined text-[20px]">presentation_play</span>
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-accent">
+                                      <Presentation className="h-5 w-5" />
                                     </div>
                                     <div>
                                       <h4 className="text-sm font-semibold text-zinc-800">在线 H5 幻灯片演示</h4>
@@ -195,14 +195,14 @@ export const ShowcaseView: React.FC<ViewProps> = ({ navigate, openOverlay }) => 
                                     onClick={() => {
                                       setActiveH5Url(item.h5_url || null);
                                     }}
-                                    className="flex items-center gap-1 text-sm font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-full px-4 py-2 transition-all shadow-sm"
+                                    className="flex items-center gap-1 text-sm font-bold bg-accent hover:bg-[#0f1a36] text-white rounded-full px-4 py-2 transition-all shadow-sm"
                                   >
-                                    <span className="material-symbols-outlined text-[16px]">play_circle</span>
+                                    <PlayCircle className="h-4 w-4" />
                                     全屏播放
                                   </button>
                                 </div>
                               )}
-                              <div className="rounded-[1.75rem] border border-white/70 bg-[#f7f9fb] p-6 max-h-[60vh] overflow-y-auto">
+                              <div className="rounded-[1.75rem] border border-border bg-canvas-alt p-6 max-h-[60vh] overflow-y-auto">
                                 <AsyncMarkdownViewer type="showcases" id={item.id} initialContent={item.summary} />
                               </div>
                             </div>
@@ -212,7 +212,7 @@ export const ShowcaseView: React.FC<ViewProps> = ({ navigate, openOverlay }) => 
                             { label: '查看赛事', variant: 'secondary', onClick: () => navigate('events') },
                           ],
                         })}
-                        className="flex items-center gap-2 text-sm font-medium text-[#677782]"
+                        className="flex items-center gap-2 text-sm font-medium text-text-muted hover:text-accent"
                       >
                         <Heart className="w-4 h-4" />
                         {item.view_count || 0}
@@ -221,9 +221,9 @@ export const ShowcaseView: React.FC<ViewProps> = ({ navigate, openOverlay }) => 
                       {item.h5_url ? (
                         <button
                           onClick={() => setActiveH5Url(item.h5_url || null)}
-                          className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white transition-all shadow-sm"
+                          className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full bg-accent-soft text-accent hover:bg-accent hover:text-white transition-all shadow-sm"
                         >
-                          <span className="material-symbols-outlined text-[14px]">play_circle</span>
+                          <PlayCircle className="h-3.5 w-3.5" />
                           演示 PPT
                         </button>
                       ) : (
@@ -257,17 +257,17 @@ export const ShowcaseView: React.FC<ViewProps> = ({ navigate, openOverlay }) => 
       </div>
 
       {activeH5Url && (
-        <div className="fixed inset-0 z-[110] bg-[#1a1c1e]/95 backdrop-blur-md animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[110] bg-canvas/95 p-2 md:p-5 backdrop-blur-md animate-in fade-in duration-300">
           <button
             onClick={() => setActiveH5Url(null)}
-            className="absolute top-6 right-6 z-[120] flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white/80 hover:text-white hover:bg-black/75 hover:scale-105 transition-all cursor-pointer shadow-lg"
+            className="absolute top-4 right-4 md:top-7 md:right-7 z-[120] flex h-10 w-10 items-center justify-center rounded-full border border-border bg-surface text-charcoal hover:text-accent hover:scale-105 transition-all cursor-pointer shadow-lg"
             aria-label="关闭播放"
           >
-            <span className="material-symbols-outlined text-[20px]">close</span>
+            <X className="h-5 w-5" />
           </button>
           <iframe
             src={activeH5Url}
-            className="w-full h-full border-none"
+            className="w-full h-full rounded-2xl border border-border bg-white shadow-2xl"
             title="H5 Showcase Presentation"
             allowFullScreen
           />

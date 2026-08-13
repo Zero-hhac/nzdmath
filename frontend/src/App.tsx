@@ -1,80 +1,123 @@
-import React, { useEffect, useState } from 'react';
+import { Component, lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { MathBackground } from './components/MathBackground';
-import { HomeView } from './views/HomeView';
-import { EventsView } from './views/EventsView';
-import { ResourcesView } from './views/ResourcesView';
-import { ShowcaseView } from './views/ShowcaseView';
-import { NewsView } from './views/NewsView';
-import { AboutView } from './views/AboutView';
-import { AdminView } from './views/AdminView';
-import { MemberPortalView as PortalView } from './views/MemberPortalView';
 import { AppOverlay } from './components/AppOverlay';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { AuthProvider } from './lib/auth';
 import { ToastProvider } from './lib/toast';
 import type { OverlayConfig, TabId } from './types/app';
+import { tabPaths, tabFromPath } from './lib/routes';
 import { api } from './lib/api';
+
+const HomeView = lazy(() => import('./views/HomeView').then((m) => ({ default: m.HomeView })));
+const EventsView = lazy(() => import('./views/EventsView').then((m) => ({ default: m.EventsView })));
+const ResourcesView = lazy(() => import('./views/ResourcesView').then((m) => ({ default: m.ResourcesView })));
+const ShowcaseView = lazy(() => import('./views/ShowcaseView').then((m) => ({ default: m.ShowcaseView })));
+const NewsView = lazy(() => import('./views/NewsView').then((m) => ({ default: m.NewsView })));
+const AboutView = lazy(() => import('./views/AboutView').then((m) => ({ default: m.AboutView })));
+const AdminView = lazy(() => import('./views/AdminView').then((m) => ({ default: m.AdminView })));
+const ChatView = lazy(() => import('./views/ChatView').then((m) => ({ default: m.ChatView })));
+const PortalView = lazy(() => import('./views/MemberPortalView').then((m) => ({ default: m.MemberPortalView })));
+
+function PageLoading() {
+  return (
+    <div className="flex items-center justify-center py-24 text-sm font-medium text-text-muted">
+      加载中...
+    </div>
+  );
+}
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-canvas px-6 text-center">
+          <div>
+            <p className="text-lg font-semibold text-charcoal">页面暂时无法显示</p>
+            <p className="mt-2 text-sm text-text-muted">请刷新页面重试。</p>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 
 export default function App() {
   return (
-    <ToastProvider>
-      <AuthProvider>
-        <AppShell />
-      </AuthProvider>
-    </ToastProvider>
+    <BrowserRouter>
+      <ToastProvider>
+        <AuthProvider>
+          <ErrorBoundary>
+            <AppShell />
+          </ErrorBoundary>
+        </AuthProvider>
+      </ToastProvider>
+    </BrowserRouter>
   );
 }
 
 function AppShell() {
-  const [activeTab, setActiveTab] = useState<TabId>('home');
+  const navigate = useNavigate();
+  const location = useLocation();
   const [overlay, setOverlay] = useState<OverlayConfig | null>(null);
+
+  const activeTab = tabFromPath(location.pathname);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     api.trackPageView().catch(() => {});
-  }, [activeTab]);
+  }, [location.pathname]);
 
-  const navigate = (tab: TabId) => {
+  const go = (tab: TabId) => {
     setOverlay(null);
-    setActiveTab(tab);
+    navigate(tabPaths[tab] ?? '/');
   };
 
   const openOverlay = (config: OverlayConfig) => setOverlay(config);
 
-  const renderView = () => {
-    switch (activeTab) {
-      case 'home': return <HomeView navigate={navigate} openOverlay={openOverlay} />;
-      case 'events': return <EventsView navigate={navigate} openOverlay={openOverlay} />;
-      case 'resources': return <ResourcesView navigate={navigate} openOverlay={openOverlay} />;
-      case 'showcase': return <ShowcaseView navigate={navigate} openOverlay={openOverlay} />;
-      case 'news': return <NewsView navigate={navigate} openOverlay={openOverlay} />;
-      case 'about': return <AboutView navigate={navigate} openOverlay={openOverlay} />;
-      case 'admin': return <AdminView navigate={navigate} openOverlay={openOverlay} />;
-      case 'portal': return <PortalView navigate={navigate} openOverlay={openOverlay} />;
-      default: return <HomeView navigate={navigate} openOverlay={openOverlay} />;
-    }
-  };
-
   return (
     <div className="min-h-screen flex flex-col selection:bg-charcoal/10 selection:text-charcoal">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[130] focus:rounded-full focus:bg-charcoal focus:px-4 focus:py-2 focus:text-white"
+      >
+        跳到主要内容
+      </a>
       <MathBackground />
-      <Navbar activeTab={activeTab} setActiveTab={navigate} />
+      <Navbar activeTab={activeTab} setActiveTab={go} />
 
-      <main className="flex-grow pt-32 pb-32 px-6 md:px-10 max-w-5xl mx-auto w-full overflow-hidden">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -10 }}
-            transition={{ duration: 0.3, ease: 'easeInOut' }}
-          >
-            {renderView()}
-          </motion.div>
-        </AnimatePresence>
+      <main id="main-content" tabIndex={-1} className="flex-grow pt-28 md:pt-32 pb-24 md:pb-32 px-4 sm:px-6 md:px-10 max-w-6xl mx-auto w-full">
+        <motion.div
+          key={location.pathname}
+          initial={{ opacity: 0, x: 10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3, ease: 'easeInOut' }}
+        >
+          <Suspense fallback={<PageLoading />}>
+            <Routes>
+              <Route path="/" element={<HomeView navigate={go} openOverlay={openOverlay} />} />
+              <Route path="/events" element={<EventsView navigate={go} openOverlay={openOverlay} />} />
+              <Route path="/resources" element={<ResourcesView navigate={go} openOverlay={openOverlay} />} />
+              <Route path="/showcase" element={<ShowcaseView navigate={go} openOverlay={openOverlay} />} />
+              <Route path="/news" element={<NewsView navigate={go} openOverlay={openOverlay} />} />
+              <Route path="/about" element={<AboutView navigate={go} openOverlay={openOverlay} />} />
+              <Route path="/chat" element={<ChatView navigate={go} openOverlay={openOverlay} />} />
+              <Route path="/admin" element={<AdminView navigate={go} openOverlay={openOverlay} />} />
+              <Route path="/portal" element={<PortalView navigate={go} openOverlay={openOverlay} />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
+        </motion.div>
       </main>
 
       <Footer openOverlay={openOverlay} />

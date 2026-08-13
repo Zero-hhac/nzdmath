@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import mammoth from 'mammoth';
+import DOMPurify from 'dompurify';
 
 export function DocxViewer({ fileUrl }: { fileUrl: string }) {
   const [htmlContent, setHtmlContent] = useState<string>('');
@@ -23,7 +24,7 @@ export function DocxViewer({ fileUrl }: { fileUrl: string }) {
         const result = await mammoth.convertToHtml({ arrayBuffer });
         
         if (isMounted) {
-          setHtmlContent(result.value);
+          setHtmlContent(DOMPurify.sanitize(result.value));
         }
       } catch (err: any) {
         if (isMounted) {

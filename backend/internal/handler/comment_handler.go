@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"errors"
 	"math-top/internal/response"
 	"math-top/internal/service"
+	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -86,7 +88,14 @@ func (h *CommentHandler) Delete(c *gin.Context) {
 		return
 	}
 	if err := h.svc.Delete(userID, uint(id)); err != nil {
-		response.Fail(c, 400, err.Error())
+		switch {
+		case errors.Is(err, service.ErrCommentForbidden):
+			response.Fail(c, http.StatusForbidden, err.Error())
+		case errors.Is(err, service.ErrCommentNotFound):
+			response.Fail(c, http.StatusNotFound, err.Error())
+		default:
+			response.Fail(c, http.StatusBadRequest, err.Error())
+		}
 		return
 	}
 	response.Success(c, nil)

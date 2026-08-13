@@ -8,7 +8,7 @@ type Resource struct {
 	Summary       string    `gorm:"type:varchar(500)" json:"summary"`
 	Category      string    `gorm:"type:varchar(50);index" json:"category"`
 	FileName      string    `gorm:"type:varchar(255)" json:"file_name"`
-	FilePath      string    `gorm:"type:varchar(500)" json:"file_path"`
+	FilePath      string    `gorm:"type:varchar(500)" json:"-"`
 	FileSize      int64     `json:"file_size"`
 	FileType      string    `gorm:"type:varchar(100)" json:"file_type"`
 	FileExt       string    `gorm:"type:varchar(20)" json:"file_ext"`

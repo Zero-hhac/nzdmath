@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Formula } from '@/src/components/Formula';
 import { AsyncMarkdownViewer } from '@/src/components/AsyncMarkdownViewer';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, CircleHelp } from 'lucide-react';
 import type { ViewProps } from '@/src/types/app';
 import { api } from '@/src/lib/api';
 
@@ -17,17 +17,46 @@ type NewsItem = {
   created_at?: string;
 };
 
+function formatDate(value?: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
+    .format(date)
+    .replaceAll('/', '.');
+}
+
 export const NewsView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+
+  const load = (p: number) => {
+    if (p > 1) setLoadingMore(true);
+    else setLoading(true);
+    api.getNews(p, 10)
+      .then((res) => {
+        setNews((prev) => (p === 1 ? res.data || [] : [...prev, ...(res.data || [])]));
+        setTotal(res.total || 0);
+        setPage(p);
+      })
+      .catch(() => {
+        if (p === 1) setNews([]);
+      })
+      .finally(() => {
+        setLoading(false);
+        setLoadingMore(false);
+      });
+  };
 
   useEffect(() => {
-    setLoading(true);
-    api.getNews()
-      .then((res) => setNews(res.data || []))
-      .catch(() => setNews([]))
-      .finally(() => setLoading(false));
+    load(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const recentTopics = news.slice(0, 3).map((n) => ({ id: n.id, title: n.title }));
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
@@ -46,9 +75,9 @@ export const NewsView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
           <div className="space-y-6">
             {news.map((item) => {
               const date = item.published_at || item.created_at;
-              const dateStr = date ? new Date(date).toISOString().slice(0, 10).replace(/-/g, '.') : '';
+              const dateStr = formatDate(date);
               return (
-                <div key={item.id} className="glass-card rounded-[2rem] p-8 space-y-4 hover:bg-white transition-all duration-300">
+                <article key={item.id} className="glass-card rounded-[2rem] p-6 md:p-8 space-y-4 hover:bg-white transition-all duration-300">
                   <div className="flex justify-between items-center">
                     <div className="flex gap-4 items-center">
                       <span className="px-3 py-1 bg-zinc-100 text-zinc-500 text-[10px] font-bold rounded-md uppercase tracking-wider">
@@ -60,7 +89,7 @@ export const NewsView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
                       <span className="math-tag !bg-white border-zinc-200">{item.tag}</span>
                     )}
                   </div>
-                  <h3 className="text-2xl font-serif text-primary leading-tight">{item.title}</h3>
+                  <h3 className="text-2xl font-medium tracking-tight text-charcoal leading-tight">{item.title}</h3>
                   <p className="text-soft-body font-medium leading-relaxed">
                     {item.summary}
                   </p>
@@ -76,7 +105,7 @@ export const NewsView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
                                 <img src={item.cover_url} alt={item.title} className="h-full w-full object-cover" />
                               </div>
                             )}
-                            <div className="rounded-[1.75rem] border border-white/70 bg-[#f7f9fb] p-6 max-h-[60vh] overflow-y-auto">
+                            <div className="rounded-[1.75rem] border border-border bg-canvas-alt p-6 max-h-[60vh] overflow-y-auto">
                               <AsyncMarkdownViewer type="news" id={item.id} initialContent={item.content} />
                             </div>
                             {/* Content placeholder removed for a cleaner markdown-only read */}
@@ -92,20 +121,31 @@ export const NewsView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
                   >
                     阅读全文 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </button>
-                </div>
+                </article>
               );
             })}
+          </div>
+        )}
+        {news.length < total && (
+          <div className="flex justify-center pt-2">
+            <button
+              onClick={() => load(page + 1)}
+              disabled={loadingMore}
+              className="btn-secondary !px-6 !py-2.5"
+            >
+              {loadingMore ? '加载中...' : `加载更多资讯（${news.length}/${total}）`}
+            </button>
           </div>
         )}
       </div>
 
       <div className="space-y-10">
-        <div className="sidebar-panel space-y-6 bg-gradient-to-br from-white/88 to-[#e3f2fd]/42">
+        <div className="sidebar-panel space-y-6 bg-gradient-to-br from-white to-accent-soft/60">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center shadow-lg">
-              <span className="material-symbols-outlined">question_mark</span>
+              <CircleHelp className="h-5 w-5" />
             </div>
-            <h4 className="font-serif text-xl text-primary">今日一题</h4>
+            <h4 className="text-xl font-medium tracking-tight text-charcoal">今日一题</h4>
           </div>
           <div className="panel-inset text-center">
             <p className="text-soft-strong font-medium mb-4 italic">
@@ -116,28 +156,35 @@ export const NewsView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
               onClick={() => navigate('portal')}
               className="btn-primary w-full !py-3 !text-xs !font-bold"
             >
-              提交答案
+              去会员中心讨论
             </button>
           </div>
         </div>
 
         <div className="sidebar-panel space-y-6">
-          <h4 className="font-serif text-xl text-primary border-b border-white pb-4">热门讨论</h4>
+          <h4 className="text-xl font-medium tracking-tight text-charcoal border-b border-border pb-4">最近资讯</h4>
           <div className="space-y-4">
-            {[
-              { t: '关于黎曼猜想的非正式讨论', cCount: 42 },
-              { t: '如何有效地用 LaTeX 绘制复杂几何图形？', cCount: 56 },
-              { t: '求助：调和级数发散速度的直观理解', cCount: 12 },
-            ].map((topic, index) => (
+            {recentTopics.map((topic, index) => (
               <button
-                key={index}
-                onClick={() => navigate('portal')}
+                key={topic.id}
+                onClick={() =>
+                  openOverlay({
+                    title: topic.title,
+                    subtitle: '最近资讯',
+                    content: (
+                      <div className="rounded-[1.75rem] border border-border bg-canvas-alt p-6 max-h-[60vh] overflow-y-auto">
+                        <AsyncMarkdownViewer type="news" id={topic.id} />
+                      </div>
+                    ),
+                    actions: [{ label: '查看相关资源', onClick: () => navigate('resources') }, { label: '关闭', variant: 'secondary' }],
+                  })
+                }
                 className="flex w-full justify-between items-center group cursor-pointer pb-4 border-b border-white/30 last:border-0 last:pb-0 text-left"
               >
                 <span className="text-sm font-medium text-soft-body group-hover:text-primary transition-colors line-clamp-1 flex-grow pr-4 italic">
-                  {topic.t}
+                  {topic.title}
                 </span>
-                <span className="text-[10px] font-bold text-zinc-400">{topic.cCount}</span>
+                <span className="text-[10px] font-bold text-zinc-400">{String(index + 1).padStart(2, '0')}</span>
               </button>
             ))}
           </div>

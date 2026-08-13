@@ -44,8 +44,8 @@ func (s *HomepageService) Get() (*HomepageData, error) {
 
 	var wg sync.WaitGroup
 	wg.Add(6)
-	go func() { defer wg.Done(); s.db.Select("id, title, summary, category, location, start_time, end_time, cover_url, is_featured, status, created_at").Where("status = ?", 1).Order("id desc").Limit(8).Find(&data.RecentEvents) }()
-	go func() { defer wg.Done(); s.db.Select("id, title, summary, category, location, start_time, end_time, cover_url, is_featured, status, created_at").Where("status = ? AND is_featured = ?", 1, true).Order("id desc").Limit(4).Find(&data.FeaturedEvents) }()
+	go func() { defer wg.Done(); s.db.Select("id, title, summary, category, location, start_time, end_time, cover_url, is_featured, status, created_at").Where("status = ? AND is_expired = ?", 1, false).Order("id desc").Limit(8).Find(&data.RecentEvents) }()
+	go func() { defer wg.Done(); s.db.Select("id, title, summary, category, location, start_time, end_time, cover_url, is_featured, status, created_at").Where("status = ? AND is_featured = ? AND is_expired = ?", 1, true, false).Order("id desc").Limit(4).Find(&data.FeaturedEvents) }()
 	go func() { defer wg.Done(); s.db.Select("id, title, summary, category, tag, cover_url, is_featured, status, published_at, created_at").Where("status = ?", 1).Order("published_at desc, id desc").Limit(8).Find(&data.RecentNews) }()
 	go func() { defer wg.Done(); s.db.Select("id, title, summary, category, tag, cover_url, is_featured, status, published_at, created_at").Where("status = ? AND is_featured = ?", 1, true).Order("id desc").Limit(4).Find(&data.FeaturedNews) }()
 	go func() { defer wg.Done(); s.db.Select("id, title, summary, category, cover_url, view_count, download_count, like_count, is_featured, file_ext, file_size, created_at").Where("status = ? AND is_featured = ?", 1, true).Order("id desc").Limit(4).Find(&data.FeaturedResources) }()

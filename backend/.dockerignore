@@ -2,9 +2,9 @@
 .idea
 .DS_Store
 *.log
+*.err
+server
+server.exe
 storage/uploads/*
 !storage/uploads/.gitkeep
 storage/logs/*
-# server
-backend
-nzdmath

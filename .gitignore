@@ -1,6 +1,6 @@
 # Frontend
 frontend/node_modules/
-# frontend/dist/
+frontend/dist/
 frontend/.env
 frontend/.env.local
 frontend/.env.development.local
@@ -10,16 +10,43 @@ frontend/npm-debug.log*
 frontend/yarn-debug.log*
 frontend/yarn-error.log*
 
+# Root environment
+.env
+.env.*
+!.env.example
+
 # Backend
 backend/storage/uploads/*
 !backend/storage/uploads/.gitkeep
 backend/storage/logs/*
-# backend/server
+backend/uploads/
+backend/server
+backend/server.exe
 backend/backend
 backend/backend.log
 backend/configs/config.yaml
+backend/export_*.xlsx
+backend/server.exe~
+backend/.trash_cleanup/
+backend/restore_seed.py
+backend/verify_restore.py
+
+# Local AI tool config (Claude Code, etc.)
+.claude/
 
 # System
 .DS_Store
 .idea/
 *.log
+*.err
+frontend/vite.err
+
+# Local verification artifacts
+.tmp-go-cache/
+frontend/.tmp-dist/
+
+# 生产 SSL 证书（绝不入库）
+ssl/
+
+# 本地开发辅助工具目录（非项目代码）
+deepseek-harness/

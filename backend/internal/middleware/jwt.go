@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"errors"
 	"math-top/internal/response"
 	"math-top/internal/utils"
 	"strings"
@@ -14,6 +15,24 @@ const (
 	UserTokenPrefix  = "token:"
 	AdminTokenPrefix = "admin_token:"
 )
+
+// AuthenticateToken 校验 token 是否有效：Redis 中存在（未登出/未过期）且 JWT 签名正确。
+// HTTP 中间件与 WebSocket 握手共用，避免两套校验逻辑漂移。
+func AuthenticateToken(rdb *redis.Client, tokenString, prefix string) (*utils.MyClaims, error) {
+	if rdb == nil || tokenString == "" {
+		return nil, errors.New("token 无效或者已过期")
+	}
+	ctx := context.Background()
+	redisKey := prefix + tokenString
+	if rdb.Exists(ctx, redisKey).Val() == 0 {
+		return nil, errors.New("token 无效或者已过期")
+	}
+	claims, err := utils.ParseToken(tokenString)
+	if err != nil {
+		return nil, errors.New("token 无效或者已过期")
+	}
+	return claims, nil
+}
 
 func JWTAuthMiddleware(rdb *redis.Client) gin.HandlerFunc {
 	return AuthMiddlewareWithPrefix(rdb, UserTokenPrefix)
@@ -39,17 +58,9 @@ func AuthMiddlewareWithPrefix(rdb *redis.Client, prefix string) gin.HandlerFunc 
 		}
 		tokenString := parts[1]
 
-		ctx := context.Background()
-		redisKey := prefix + tokenString
-		if rdb.Exists(ctx, redisKey).Val() == 0 {
-			response.Fail(c, 401, "token 无效或者已过期")
-			c.Abort()
-			return
-		}
-
-		claims, err := utils.ParseToken(tokenString)
+		claims, err := AuthenticateToken(rdb, tokenString, prefix)
 		if err != nil {
-			response.Fail(c, 401, "token 无效或者已过期")
+			response.Fail(c, 401, err.Error())
 			c.Abort()
 			return
 		}

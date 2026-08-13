@@ -26,6 +26,7 @@ type AdminCreateEventRequest struct {
 	StartTime  time.Time `json:"start_time" binding:"required"`
 	EndTime    time.Time `json:"end_time" binding:"required"`
 	CoverURL   string    `json:"cover_url"`
+	Capacity   int       `json:"capacity" binding:"min=0,max=100000"` // 报名名额，0=不限
 	Status     int       `json:"status" binding:"oneof=0 1"`
 	IsFeatured bool      `json:"is_featured"`
 }
@@ -70,7 +71,6 @@ type AdminCreateShowcaseRequest struct {
 	Status      int    `json:"status" binding:"oneof=0 1"`
 }
 
-
 // AdminUpdateShowcaseRequest 更新作品
 type AdminUpdateShowcaseRequest = AdminCreateShowcaseRequest
 
@@ -80,7 +80,8 @@ type AdminDashboardResponse struct {
 	TodayNew      DashboardTodayNew `json:"today_new"`
 	Trend         DashboardTrend    `json:"trend_7days"`
 	TodayActivity TodayActivity     `json:"today_activity"` // 新增今日实时流量数据
-	Activity      ActivityTrend     `json:"activity_trend"`   // 新增7天流量趋势
+	Activity      ActivityTrend     `json:"activity_trend"` // 新增7天流量趋势
+	TotalActivity TotalActivity     `json:"total_activity"`
 }
 
 type TodayActivity struct {
@@ -94,6 +95,11 @@ type ActivityTrend struct {
 	PV    []int64  `json:"pv"`
 	UV    []int64  `json:"uv"`
 	DAU   []int64  `json:"dau"`
+}
+
+type TotalActivity struct {
+	PV int64 `json:"pv"`
+	UV int64 `json:"uv"`
 }
 
 type DashboardCounts struct {

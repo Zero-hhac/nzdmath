@@ -71,6 +71,7 @@ func (s *AdminEventService) Create(adminID uint, req dto.AdminCreateEventRequest
 		StartTime:  req.StartTime,
 		EndTime:    req.EndTime,
 		CoverUrl:   req.CoverURL,
+		Capacity:   req.Capacity,
 		Status:     req.Status,
 		IsFeatured: req.IsFeatured,
 		CreatedBy:  adminID,
@@ -94,6 +95,7 @@ func (s *AdminEventService) Update(id uint, req dto.AdminUpdateEventRequest) err
 		"start_time":  req.StartTime,
 		"end_time":    req.EndTime,
 		"cover_url":   req.CoverURL,
+		"capacity":    req.Capacity,
 		"status":      req.Status,
 		"is_featured": req.IsFeatured,
 	})
@@ -107,12 +109,22 @@ func (s *AdminEventService) Update(id uint, req dto.AdminUpdateEventRequest) err
 }
 
 func (s *AdminEventService) Delete(id uint) error {
-	res := s.db.Delete(&model.Event{}, id)
-	if res.Error != nil {
-		return res.Error
-	}
-	if res.RowsAffected == 0 {
-		return errors.New("活动不存在")
+	// 级联清理该活动的报名记录，避免孤儿数据
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("event_id = ?", id).Delete(&model.EventRegistration{}).Error; err != nil {
+			return err
+		}
+		res := tx.Delete(&model.Event{}, id)
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return errors.New("活动不存在")
+		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -126,4 +138,17 @@ func (s *AdminEventService) ToggleFeature(id uint) error {
 		return err
 	}
 	return s.db.Model(&event).Update("is_featured", !event.IsFeatured).Error
+}
+
+// SetExpired 管理员手动标记活动是否过期：
+// 过期活动从公开列表下线、报名被拒绝（我的报名/后台名单仍可见）。
+func (s *AdminEventService) SetExpired(id uint, expired bool) error {
+	res := s.db.Model(&model.Event{}).Where("id = ?", id).Update("is_expired", expired)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return errors.New("活动不存在")
+	}
+	return nil
 }

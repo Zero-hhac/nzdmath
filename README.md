@@ -24,10 +24,10 @@
 确保您本地的 Docker 已经启动并正常运行。
 
 ### 2. 构建并启动服务
-在终端中进入 `/nzdmath` 目录，执行以下一键启动命令：
+在终端中进入项目根目录（包含 `docker-compose.yml` 的目录），执行以下一键启动命令：
 
 ```bash
-cd nzdmath
+cd 项目根目录
 docker compose up --build -d
 ```
 
@@ -49,7 +49,7 @@ docker compose up --build -d
 1. **前后端接口联调**：
    - 所有的 API 请求（形如 `/api/v1/...`）在前端发起后，均会由 Nginx 自动反向代理至后端的 `http://backend:8080`，无需在前端代码中硬编码任何后端端口。
 2. **文件上传路径持久化**：
-   - 容器化时，后端的上传文件存放于 `/app/storage/uploads`。我们在 `docker-compose` 中挂载了命名卷 `uploads_data`，确保即使容器被销毁重建，用户上传的头像和作品文件也不会丢失。
+   - 容器化时，后端的上传文件存放于 `/app/storage/uploads`。我们在 `docker-compose` 中把宿主机 `backend/storage/uploads` 目录以 bind mount 方式挂载进容器（`./backend/storage/uploads:/app/storage/uploads`），确保即使容器被销毁重建，用户上传的头像和作品文件也不会丢失。
 3. **数据库自动迁移**：
    - 后端容器启动并等 MySQL 就绪后，会借助 GORM 自动执行迁移，自动创建所有必要的数据表，无需手动执行 SQL 初始化。
 
@@ -86,5 +86,5 @@ sudo systemctl restart docker
 ```
 
 ### 4. 域名绑定（可选）
-如果您购买了域名并解析到了您的阿里云服务器 IP，只需直接访问域名即可。如果需要将 Nginx 配置与域名绑定，可以修改 [nginx.conf](file:///Users/Admin/copy/test/math-top/nzdmath/frontend/nginx.conf) 中的 `server_name localhost;` 为 `server_name 您的域名;`，然后重新构建并启动前端容器。
+如果您购买了域名并解析到了您的阿里云服务器 IP，只需直接访问域名即可。如果需要将 Nginx 配置与域名绑定，可以修改 [frontend/nginx.conf](./frontend/nginx.conf) 中的 `server_name localhost;` 为 `server_name 您的域名;`，然后重新构建并启动前端容器。
 
