@@ -43,8 +43,8 @@ func validateRegister(username, password, nickname, email, realName, className, 
 	if err := utils.ValidatePasswordStrength(password); err != nil {
 		return err
 	}
-	if email != "" && !emailRegex.MatchString(email) {
-		return errors.New("邮箱格式不正确")
+	if email == "" || !emailRegex.MatchString(email) {
+		return errors.New("请输入有效的邮箱地址")
 	}
 	if l := len(nickname); nickname != "" && l > 50 {
 		return errors.New("昵称长度不能超过 50")
@@ -61,25 +61,76 @@ func validateRegister(username, password, nickname, email, realName, className, 
 	return nil
 }
 
-func (s *UserService) Register(username, password, nickname, email, realName, className, department string) (*model.User, error) {
+// SendRegisterCode 校验邮箱未注册并生成 6 位注册验证码（10 分钟有效，60 秒防刷冷却）。
+func (s *UserService) SendRegisterCode(email string) (code string, delivered bool, err error) {
+	email = strings.TrimSpace(email)
+	if email == "" || !emailRegex.MatchString(email) {
+		return "", false, errors.New("请输入有效的邮箱地址")
+	}
+
+	// 检查邮箱是否已被注册
+	var existing model.User
+	if err := s.db.Where("email = ?", email).First(&existing).Error; err == nil {
+		return "", false, errors.New("该邮箱已被注册")
+	}
+
+	// 检查 60 秒防刷冷却
+	cooldownKey := "regcode_cooldown:" + email
+	if exists, _ := s.rdb.Exists(context.Background(), cooldownKey).Result(); exists > 0 {
+		return "", false, errors.New("验证码发送太频繁，请稍后再试")
+	}
+
+	n, err := rand.Int(rand.Reader, big.NewInt(1000000))
+	if err != nil {
+		return "", false, errors.New("系统繁忙，请稍后再试")
+	}
+	code = fmt.Sprintf("%06d", n.Int64())
+	key := "regcode:" + email
+	if err := s.rdb.Set(context.Background(), key, code, 10*time.Minute).Err(); err != nil {
+		return "", false, errors.New("系统繁忙，请稍后再试")
+	}
+	s.rdb.Set(context.Background(), cooldownKey, "1", 60*time.Second)
+
+	if err := SendRegisterVerifyCode(email, code); err != nil {
+		slog.Warn("注册验证码邮件发送失败", "email", email, "err", err)
+		return code, false, nil
+	}
+	return "", true, nil
+}
+
+func (s *UserService) Register(username, password, nickname, email, code, realName, className, department string) (*model.User, error) {
 	username = strings.TrimSpace(username)
 	email = strings.TrimSpace(email)
+	code = strings.TrimSpace(code)
 	realName = strings.TrimSpace(realName)
 	className = strings.TrimSpace(className)
 
 	if err := validateRegister(username, password, nickname, email, realName, className, department); err != nil {
 		return nil, err
 	}
+	if code == "" {
+		return nil, errors.New("请输入邮箱验证码")
+	}
+
+	// 校验验证码
+	regKey := "regcode:" + email
+	savedCode, err := s.rdb.Get(context.Background(), regKey).Result()
+	if err == redis.Nil {
+		return nil, errors.New("验证码已过期或不存在，请重新获取")
+	} else if err != nil {
+		return nil, errors.New("系统繁忙，请稍后再试")
+	}
+	if savedCode != code {
+		return nil, errors.New("验证码错误")
+	}
 
 	var existing model.User
 	if err := s.db.Where("username = ?", username).First(&existing).Error; err == nil {
 		return nil, errors.New("用户名已存在")
 	}
-	if email != "" {
-		var emailExists model.User
-		if err := s.db.Where("email = ?", email).First(&emailExists).Error; err == nil {
-			return nil, errors.New("邮箱已被注册")
-		}
+	var emailExists model.User
+	if err := s.db.Where("email = ?", email).First(&emailExists).Error; err == nil {
+		return nil, errors.New("邮箱已被注册")
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -91,16 +142,11 @@ func (s *UserService) Register(username, password, nickname, email, realName, cl
 		nickname = username
 	}
 
-	var emailPtr *string
-	if email != "" {
-		emailPtr = &email
-	}
-
 	user := model.User{
 		Username:     username,
 		PasswordHash: string(hashedPassword),
 		Nickname:     nickname,
-		Email:        emailPtr,
+		Email:        &email,
 		RealName:     realName,
 		ClassName:    className,
 		Department:   department,
@@ -109,8 +155,12 @@ func (s *UserService) Register(username, password, nickname, email, realName, cl
 	}
 
 	if err := s.db.Create(&user).Error; err != nil {
-		return nil, errors.New("注册失败")
+		return nil, errors.New("创建用户失败: " + err.Error())
 	}
+
+	// 注册成功后清除验证码
+	s.rdb.Del(context.Background(), regKey)
+
 	return &user, nil
 }
 

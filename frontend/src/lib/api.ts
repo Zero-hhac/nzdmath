@@ -27,7 +27,21 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ username, password }),
     }),
-  userRegister: (data: { username: string; password: string; nickname?: string; email?: string; real_name: string; class_name: string; department: string }) =>
+  sendRegisterCode: (email: string) =>
+    request<{ message?: string; dev_code?: string }>('/auth/send-register-code', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+  userRegister: (data: {
+    username: string;
+    password: string;
+    nickname?: string;
+    email: string;
+    code: string;
+    real_name: string;
+    class_name: string;
+    department: string;
+  }) =>
     request('/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),

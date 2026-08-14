@@ -23,10 +23,15 @@ type RegisterRequest struct {
 	Username   string `json:"username" binding:"required"`
 	Password   string `json:"password" binding:"required"`
 	Nickname   string `json:"nickname"`
-	Email      string `json:"email"`
+	Email      string `json:"email" binding:"required"`
+	Code       string `json:"code" binding:"required"`
 	RealName   string `json:"real_name" binding:"required"`
 	ClassName  string `json:"class_name" binding:"required"`
 	Department string `json:"department" binding:"required"`
+}
+
+type SendRegisterCodeRequest struct {
+	Email string `json:"email" binding:"required"`
 }
 
 type LoginRequest struct {
@@ -39,13 +44,39 @@ type ChangePasswordRequest struct {
 	NewPassword string `json:"new_password" binding:"required"`
 }
 
+// SendRegisterCode 发送注册邮箱验证码。
+func (h *UserHandler) SendRegisterCode(c *gin.Context) {
+	var req SendRegisterCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Fail(c, 400, "请输入邮箱地址")
+		return
+	}
+	code, delivered, err := h.svc.SendRegisterCode(req.Email)
+	if err != nil {
+		response.Fail(c, 400, err.Error())
+		return
+	}
+	if delivered {
+		response.Success(c, gin.H{"message": "验证码已发送至邮箱，10 分钟内有效"})
+		return
+	}
+	if config.GlobalConfig.App.Mode == "release" {
+		response.Fail(c, 500, "邮件服务未配置，请联系管理员")
+		return
+	}
+	response.Success(c, gin.H{
+		"message":  "邮件服务未配置（本地调试模式），验证码：" + code,
+		"dev_code": code,
+	})
+}
+
 func (h *UserHandler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, 400, "请完整填写注册信息")
+		response.Fail(c, 400, "请完整填写注册信息与邮箱验证码")
 		return
 	}
-	user, err := h.svc.Register(req.Username, req.Password, req.Nickname, req.Email, req.RealName, req.ClassName, req.Department)
+	user, err := h.svc.Register(req.Username, req.Password, req.Nickname, req.Email, req.Code, req.RealName, req.ClassName, req.Department)
 	if err != nil {
 		response.Fail(c, 400, err.Error())
 		return

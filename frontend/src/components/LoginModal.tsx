@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, LogIn, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/src/lib/auth';
@@ -29,8 +29,48 @@ export const LoginModal: React.FC<Props> = ({ open, onClose }) => {
   const [resetPwd, setResetPwd] = useState('');
   const [resetConfirm, setResetConfirm] = useState('');
 
+  // 注册邮箱验证码流程
+  const [regCode, setRegCode] = useState('');
+  const [countdown, setCountdown] = useState(0);
+  const [sendingCode, setSendingCode] = useState(false);
+
   const { loginUser } = useAuth();
   const { showToast } = useToast();
+
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const timer = setInterval(() => {
+      setCountdown((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [countdown]);
+
+  const handleSendRegisterCode = async () => {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setError('请先输入注册邮箱');
+      return;
+    }
+    if (!/^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$/.test(trimmedEmail)) {
+      setError('邮箱格式不正确');
+      return;
+    }
+    setError('');
+    setNotice('');
+    setSendingCode(true);
+    try {
+      const res = await api.sendRegisterCode(trimmedEmail);
+      const msg = res.data?.message || '验证码已发送至邮箱，请查收';
+      showToast(msg, 'success');
+      setNotice(msg);
+      if (res.data?.dev_code) setRegCode(res.data.dev_code);
+      setCountdown(60);
+    } catch (err: any) {
+      setError(err.message || '验证码发送失败');
+    } finally {
+      setSendingCode(false);
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,35 +128,67 @@ export const LoginModal: React.FC<Props> = ({ open, onClose }) => {
       setError('请填写必填项');
       return;
     }
-    if (isRegistering && (!realName.trim() || !className.trim() || !department)) {
-      setError('请填写姓名、班级并选择部门');
-      return;
-    }
-    if (isRegistering && (password.length < 6 || !/(?=.*[A-Za-z])(?=.*\d)/.test(password))) {
-      setError('密码至少 6 位，且必须同时包含字母和数字');
-      return;
-    }
-    setError('');
-    setLoading(true);
-    try {
-      if (isRegistering) {
-        await api.userRegister({ username, password, nickname, email: email.trim(), real_name: realName.trim(), class_name: className.trim(), department });
+    if (isRegistering) {
+      if (!email.trim()) {
+        setError('请填写注册邮箱');
+        return;
+      }
+      if (!/^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$/.test(email.trim())) {
+        setError('邮箱格式不正确');
+        return;
+      }
+      if (!regCode.trim()) {
+        setError('请输入邮箱验证码');
+        return;
+      }
+      if (!realName.trim() || !className.trim() || !department) {
+        setError('请填写姓名、班级并选择部门');
+        return;
+      }
+      if (password.length < 6 || !/(?=.*[A-Za-z])(?=.*\d)/.test(password)) {
+        setError('密码至少 6 位，且必须同时包含字母和数字');
+        return;
+      }
+      setError('');
+      setLoading(true);
+      try {
+        await api.userRegister({
+          username: username.trim(),
+          password,
+          nickname: nickname.trim(),
+          email: email.trim(),
+          code: regCode.trim(),
+          real_name: realName.trim(),
+          class_name: className.trim(),
+          department,
+        });
         showToast('注册成功，请登录！', 'success');
         setIsRegistering(false);
         setPassword('');
-      } else {
-        const res = await loginUser(username.trim(), password);
-        if (res.isAdmin) {
-          showToast('欢迎回来，管理员！', 'success');
-        } else {
-          showToast('登录成功，欢迎回来！', 'success');
-        }
-        onClose();
-        setUsername('');
-        setPassword('');
+        setRegCode('');
+        setNotice('');
+      } catch (err: any) {
+        setError(err.message || '注册失败');
+      } finally {
+        setLoading(false);
       }
+      return;
+    }
+
+    setError('');
+    setLoading(true);
+    try {
+      const res = await loginUser(username.trim(), password);
+      if (res.isAdmin) {
+        showToast('欢迎回来，管理员！', 'success');
+      } else {
+        showToast('登录成功，欢迎回来！', 'success');
+      }
+      onClose();
+      setUsername('');
+      setPassword('');
     } catch (err: any) {
-      setError(err.message || (isRegistering ? '注册失败' : '登录失败'));
+      setError(err.message || '登录失败');
     } finally {
       setLoading(false);
     }
@@ -136,7 +208,7 @@ export const LoginModal: React.FC<Props> = ({ open, onClose }) => {
             initial={{ scale: 0.95, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 20 }}
-            className="glass-card rounded-3xl p-8 max-w-md w-full relative"
+            className="glass-card rounded-3xl p-8 max-w-md w-full relative max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -194,7 +266,7 @@ export const LoginModal: React.FC<Props> = ({ open, onClose }) => {
                     onChange={(e) => setEmail(e.target.value)}
                     className="app-input w-full rounded-xl py-3 px-4"
                     placeholder="请输入注册时填写的邮箱"
-                    autoComplete="email"
+                    autoComplete="off"
                   />
                   <p className="text-xs text-zinc-400 mt-1.5">
                     未绑定邮箱的账号无法自助找回，请联系管理员重置密码。
@@ -276,16 +348,44 @@ export const LoginModal: React.FC<Props> = ({ open, onClose }) => {
                 <>
                   <div>
                     <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 block">
-                      邮箱 (选填，用于找回密码)
+                      注册邮箱 <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="app-input w-full rounded-xl py-3 px-4"
-                      placeholder="建议填写，忘记密码时可自助找回"
-                      autoComplete="email"
+                      placeholder="请输入注册邮箱"
+                      autoComplete="off"
                     />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 block">
+                      邮箱验证码 <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={regCode}
+                        onChange={(e) => setRegCode(e.target.value)}
+                        className="app-input flex-1 rounded-xl py-3 px-4 font-mono tracking-widest"
+                        placeholder="6 位验证码"
+                        maxLength={6}
+                        autoComplete="off"
+                      />
+                      <button
+                        type="button"
+                        disabled={sendingCode || countdown > 0}
+                        onClick={handleSendRegisterCode}
+                        className="px-4 py-3 rounded-xl text-xs font-semibold bg-primary/10 hover:bg-primary/20 text-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap cursor-pointer"
+                      >
+                        {sendingCode
+                          ? '发送中...'
+                          : countdown > 0
+                            ? `${countdown}s 后重发`
+                            : '获取验证码'}
+                      </button>
+                    </div>
                   </div>
                   <div>
                     <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 block">
@@ -379,7 +479,7 @@ export const LoginModal: React.FC<Props> = ({ open, onClose }) => {
                     还没有账号？
                     <button
                       type="button"
-                      onClick={() => { setIsRegistering(true); setError(''); }}
+                      onClick={() => { setIsRegistering(true); setError(''); setNotice(''); }}
                       className="text-primary ml-1 cursor-pointer font-medium"
                     >
                       立即注册
@@ -399,7 +499,7 @@ export const LoginModal: React.FC<Props> = ({ open, onClose }) => {
                   已有账号？
                   <button
                     type="button"
-                    onClick={() => { setIsRegistering(false); setError(''); }}
+                    onClick={() => { setIsRegistering(false); setError(''); setNotice(''); }}
                     className="text-primary ml-1 cursor-pointer font-medium"
                   >
                     返回登录

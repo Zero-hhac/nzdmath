@@ -194,6 +194,7 @@ func registerPublicRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, c *cach
 	{
 		authLimit := middleware.RateLimitMiddleware(rdb, 10, time.Minute)
 		trackLimit := middleware.RateLimitMiddleware(rdb, 60, time.Minute)
+		public.POST("/auth/send-register-code", authLimit, userHandler.SendRegisterCode)
 		public.POST("/auth/register", authLimit, userHandler.Register)
 		public.POST("/auth/login", authLimit, userHandler.Login)
 		public.POST("/auth/logout", userHandler.Logout)
