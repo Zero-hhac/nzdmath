@@ -92,6 +92,14 @@ func (h *ChatWSHandler) Handle(c *gin.Context) {
 	h.readLoop(client)
 }
 
+// #27 WebSocket 发消息限频参数：10 秒滑动窗口内至多 10 条，
+// 超限先推送警告，连续超限则断开连接。
+const (
+	wsRateWindow   = 10 * time.Second
+	wsRateMax      = 10
+	wsRateWarnOnce = 3 // 连续超限多少次后断开
+)
+
 // readLoop 是连接唯一的读循环：处理客户端 ping / 发消息，断开时清理并广播在线数
 func (h *ChatWSHandler) readLoop(client *ws.Client) {
 	defer func() {
@@ -111,6 +119,38 @@ func (h *ChatWSHandler) readLoop(client *ws.Client) {
 			Content string `json:"content"`
 			TS      int64  `json:"ts"`
 		} `json:"data"`
+	}
+
+	// #27 滑动窗口限频：记录每条消息的发送时间戳
+	var sendTimes []time.Time
+	overLimitStreak := 0
+
+	rateAllowed := func() bool {
+		now := time.Now()
+		cutoff := now.Add(-wsRateWindow)
+		kept := sendTimes[:0]
+		for _, t := range sendTimes {
+			if t.After(cutoff) {
+				kept = append(kept, t)
+			}
+		}
+		sendTimes = kept
+		if len(sendTimes) >= wsRateMax {
+			return false
+		}
+		sendTimes = append(sendTimes, now)
+		return true
+	}
+
+	pushWarning := func() {
+		payload, _ := json.Marshal(ws.Envelope{
+			Type: "rate_warn",
+			Data: map[string]string{"message": "发送消息过于频繁，请稍后再试"},
+		})
+		select {
+		case client.Send <- payload:
+		default:
+		}
 	}
 
 	for {
@@ -135,6 +175,19 @@ func (h *ChatWSHandler) readLoop(client *ws.Client) {
 			if content == "" {
 				continue
 			}
+			// #27：滑动窗口限频，超限先推送警告，持续超限断开连接
+			if !rateAllowed() {
+				overLimitStreak++
+				pushWarning()
+				if overLimitStreak >= wsRateWarnOnce {
+					_ = client.Conn().WriteControl(websocket.CloseMessage,
+						websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "发送消息过于频繁"),
+						time.Now().Add(5*time.Second))
+					return
+				}
+				continue
+			}
+			overLimitStreak = 0
 			// 发送成功由 service 内部广播给所有人（含发送者，前端按 id 去重）
 			_, _ = h.svc.SendText(client.UserID, content)
 		}

@@ -15,9 +15,11 @@ frontend/yarn-error.log*
 .env.*
 !.env.example
 
-# Backend
+# Backend（M2：用户上传目录不进版本库）
 backend/storage/uploads/*
 !backend/storage/uploads/.gitkeep
+!backend/storage/uploads/h5_unified_light/
+!backend/storage/uploads/h5_unified_light/**
 backend/storage/logs/*
 backend/uploads/
 backend/server
@@ -52,4 +54,3 @@ ssl/
 deepseek-harness/
 
 orcterm-*.png
-

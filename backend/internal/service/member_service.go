@@ -99,9 +99,8 @@ func (s *MemberService) UpdateProfile(userID uint, nickname string, avatar strin
 		"class_name": className,
 		"department": department,
 	}
-	if email == "" {
-		updates["email"] = nil
-	} else {
+	// #23：email 与其他字段一致采用“留空即不变”语义，避免误清空邮箱导致无法找回密码
+	if email != "" {
 		updates["email"] = email
 	}
 	if err := s.db.Model(&model.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {

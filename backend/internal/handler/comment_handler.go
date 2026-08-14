@@ -59,6 +59,33 @@ func (h *CommentHandler) ListByTarget(c *gin.Context) {
 	response.PageSuccess(c, comments, total, page, pageSize)
 }
 
+// ListReplies 分页加载某条父评论的回复（#24）
+func (h *CommentHandler) ListReplies(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Fail(c, 400, "无效的评论 ID")
+		return
+	}
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
+
+	replies, total, hasMore, err := h.svc.ListReplies(uint(id), page, pageSize)
+	if err != nil {
+		response.Fail(c, 400, err.Error())
+		return
+	}
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = 10
+	}
+	response.PageSuccess(c, gin.H{
+		"replies":  replies,
+		"has_more": hasMore,
+	}, total, page, pageSize)
+}
+
 func (h *CommentHandler) Create(c *gin.Context) {
 	userID := c.GetUint("user_id")
 	var req CreateCommentRequest

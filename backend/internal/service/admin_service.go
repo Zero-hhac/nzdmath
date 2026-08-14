@@ -28,7 +28,9 @@ func NewAdminService(db *gorm.DB, rdb *redis.Client) *AdminService {
 	return &AdminService{db: db, rdb: rdb}
 }
 
-// EnsureDefaultAdmin 若 admins 表为空，创建默认账号 admin/admin123
+// EnsureDefaultAdmin 若 admins 表为空，创建默认账号 admin。
+// M4：任何模式（含本地 debug）都必须通过 ADMIN_INITIAL_PASSWORD 设置初始密码，
+// 彻底杜绝 admin/admin123 默认口令。
 func (s *AdminService) EnsureDefaultAdmin() error {
 	var count int64
 	if err := s.db.Model(&model.Admin{}).Count(&count).Error; err != nil {
@@ -38,23 +40,16 @@ func (s *AdminService) EnsureDefaultAdmin() error {
 		return nil
 	}
 	password := os.Getenv("ADMIN_INITIAL_PASSWORD")
-	explicitPassword := password != ""
 	if password == "" {
-		if config.GlobalConfig.App.Mode == "release" {
-			return errors.New("生产环境必须通过 ADMIN_INITIAL_PASSWORD 设置初始管理员密码")
-		}
-		password = "admin123"
-		slog.Warn("开发模式创建默认管理员 admin/admin123，生产环境请设置 ADMIN_INITIAL_PASSWORD")
+		return errors.New("必须通过 ADMIN_INITIAL_PASSWORD 环境变量设置初始管理员密码")
 	}
-	if explicitPassword {
-		// 与会员同一套强度策略：6-72 位且必须含字母和数字
-		if err := utils.ValidatePasswordStrength(password); err != nil {
-			return err
-		}
-		switch password {
-		case "admin123", "password123", "123456", "admin", "password":
-			return errors.New("初始管理员密码过弱，请使用高强度密码")
-		}
+	// 与会员同一套强度策略：6-72 位且必须含字母和数字
+	if err := utils.ValidatePasswordStrength(password); err != nil {
+		return err
+	}
+	switch password {
+	case "admin123", "password123", "123456", "admin", "password":
+		return errors.New("初始管理员密码过弱，请使用高强度密码")
 	}
 	hashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {

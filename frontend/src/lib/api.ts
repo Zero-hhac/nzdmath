@@ -17,6 +17,9 @@ export const api = {
   getShowcase: (id: number) => request(`/showcases/${id}`),
   getComments: (targetType: string, targetId: number, page = 1) =>
     request(`/comments?target_type=${targetType}&target_id=${targetId}&page=${page}`),
+  // #24：按父评论分页加载回复（超过 50 条可翻页）
+  getCommentReplies: (commentId: number, page = 1, pageSize = 10) =>
+    request(`/comments/${commentId}/replies?page=${page}&page_size=${pageSize}`),
 
   userLogin: (username: string, password: string) =>
     request<{ token: string; admin_token?: string; is_admin?: boolean; user: any }>('/auth/login', {
