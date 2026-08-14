@@ -39,7 +39,7 @@ func (h *ShowcaseHandler) Detail(c *gin.Context) {
 		return
 	}
 
-	showcase, err := h.svc.GetShowcase(uint(id))
+	showcase, err := h.svc.GetShowcase(uint(id), c.ClientIP())
 	if err != nil {
 		response.Fail(c, 404, err.Error())
 		return

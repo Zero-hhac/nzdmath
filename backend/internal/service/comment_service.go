@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"math-top/internal/consts"
 	"math-top/internal/model"
 
 	"gorm.io/gorm"
@@ -149,6 +150,35 @@ func (s *CommentService) ListByTarget(targetType string, targetID uint, page, pa
 	return result, total, nil
 }
 
+// ListReplies 按父评论分页加载回复（#24：原固定截取 50 条，第 51 条起不可见）。
+// 返回可见回复列表、总数与是否还有更多。
+func (s *CommentService) ListReplies(parentID uint, page, pageSize int) ([]model.Comment, int64, bool, error) {
+	if page < 1 {
+		page = 1
+	}
+	pageSize = normalizePageSize(pageSize)
+
+	var total int64
+	if err := s.db.Model(&model.Comment{}).
+		Where("parent_id = ? AND status = ?", parentID, consts.CommentStatusVisible).
+		Count(&total).Error; err != nil {
+		return nil, 0, false, errors.New("获取回复数量失败")
+	}
+
+	var replies []model.Comment
+	if err := s.db.Where("parent_id = ? AND status = ?", parentID, consts.CommentStatusVisible).
+		Order("id asc").
+		Offset((page - 1) * pageSize).Limit(pageSize + 1).
+		Find(&replies).Error; err != nil {
+		return nil, 0, false, errors.New("获取回复列表失败")
+	}
+	hasMore := len(replies) > pageSize
+	if hasMore {
+		replies = replies[:pageSize]
+	}
+	return s.FillUserInfo(replies), total, hasMore, nil
+}
+
 var (
 	ErrCommentNotFound  = errors.New("评论不存在")
 	ErrCommentForbidden = errors.New("无权删除他人评论")
@@ -190,6 +220,10 @@ func (s *CommentService) ToggleLike(userID, commentID uint) (bool, error) {
 	var comment model.Comment
 	if err := s.db.First(&comment, commentID).Error; err != nil {
 		return false, errors.New("评论不存在")
+	}
+	// #20：仅可见评论可点赞，隐藏/删除的评论拒绝点赞
+	if comment.Status != consts.CommentStatusVisible {
+		return false, errors.New("评论已被隐藏，无法点赞")
 	}
 	var existing model.CommentLike
 	err := s.db.Where("user_id = ? AND comment_id = ?", userID, commentID).First(&existing).Error

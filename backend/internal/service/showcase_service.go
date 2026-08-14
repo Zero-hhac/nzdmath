@@ -1,18 +1,23 @@
 package service
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"math-top/internal/model"
+	"time"
 
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
 type ShowcaseService struct {
-	db *gorm.DB
+	db  *gorm.DB
+	rdb *redis.Client
 }
 
-func NewShowcaseService(db *gorm.DB) *ShowcaseService {
-	return &ShowcaseService{db: db}
+func NewShowcaseService(db *gorm.DB, rdb *redis.Client) *ShowcaseService {
+	return &ShowcaseService{db: db, rdb: rdb}
 }
 
 func (s *ShowcaseService) ListShowcases(field, competition, keyword string, page, pageSize int) ([]model.Showcase, int64, error) {
@@ -41,6 +46,7 @@ func (s *ShowcaseService) ListShowcases(field, competition, keyword string, page
 	if pageSize <= 0 {
 		pageSize = 10
 	}
+	// #10：与其他列表一致，page_size 封顶 50
 	if pageSize > 50 {
 		pageSize = 50
 	}
@@ -53,7 +59,9 @@ func (s *ShowcaseService) ListShowcases(field, competition, keyword string, page
 	return showcases, total, nil
 }
 
-func (s *ShowcaseService) GetShowcase(id uint) (*model.Showcase, error) {
+// GetShowcase 作品详情；#20：浏览量按“IP+作品”维度在 Redis 24 小时去重后再自增，
+// 防止同一用户刷新刷榜（首页按浏览量排序）。
+func (s *ShowcaseService) GetShowcase(id uint, clientIP string) (*model.Showcase, error) {
 	var showcase model.Showcase
 	if err := s.db.Where("id = ? AND status = ?", id, 1).First(&showcase).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -62,8 +70,14 @@ func (s *ShowcaseService) GetShowcase(id uint) (*model.Showcase, error) {
 		return nil, err
 	}
 
-	// 浏览量 +1
-	s.db.Model(&showcase).UpdateColumn("view_count", gorm.Expr("view_count + ?", 1))
+	if s.rdb != nil && clientIP != "" {
+		key := fmt.Sprintf("showcase_view:%d:%s", id, clientIP)
+		// SETNX 成功表示该 IP 24 小时内首次访问，计数才 +1
+		ok, err := s.rdb.SetNX(context.Background(), key, "1", 24*time.Hour).Result()
+		if err == nil && ok {
+			s.db.Model(&showcase).UpdateColumn("view_count", gorm.Expr("view_count + ?", 1))
+		}
+	}
 
 	return &showcase, nil
 }

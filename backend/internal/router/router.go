@@ -184,7 +184,7 @@ func registerPublicRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, c *cach
 	eventRegService := service.NewEventRegistrationService(db, rdb)
 	newsService := service.NewNewsService(db)
 	resourceService := service.NewResourceService(db)
-	showcaseService := service.NewShowcaseService(db)
+	showcaseService := service.NewShowcaseService(db, rdb)
 	commentService := service.NewCommentService(db)
 	activityService := service.NewActivityService(rdb)
 
@@ -227,6 +227,7 @@ func registerPublicRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, c *cach
 		public.GET("/showcases/:id", showcaseHandler.Detail)
 
 		public.GET("/comments", commentHandler.ListByTarget)
+		public.GET("/comments/:id/replies", commentHandler.ListReplies)
 	}
 }
 

@@ -121,31 +121,36 @@ func (s *FavoriteService) ListFavorites(userID uint) ([]FavoriteItem, error) {
 		switch fav.TargetType {
 		case "event":
 			var event model.Event
-			if err := s.db.Where("id = ?", fav.TargetID).First(&event).Error; err == nil {
+			// #19：仅回显已发布（status=1）内容，已下线条目用占位文案
+			if err := s.db.Where("id = ? AND status = ?", fav.TargetID, 1).First(&event).Error; err == nil {
 				item.TargetTitle = event.Title
 				item.TargetSummary = event.Summary
 			}
 
 		case "news":
 			var news model.News
-			if err := s.db.Where("id = ?", fav.TargetID).First(&news).Error; err == nil {
+			if err := s.db.Where("id = ? AND status = ?", fav.TargetID, 1).First(&news).Error; err == nil {
 				item.TargetTitle = news.Title
 				item.TargetSummary = news.Summary
 			}
 
 		case "resource":
 			var resource model.Resource
-			if err := s.db.Where("id = ?", fav.TargetID).First(&resource).Error; err == nil {
+			if err := s.db.Where("id = ? AND status = ?", fav.TargetID, 1).First(&resource).Error; err == nil {
 				item.TargetTitle = resource.Title
 				item.TargetSummary = resource.Summary
 			}
 
 		case "showcase":
 			var showcase model.Showcase
-			if err := s.db.Where("id = ?", fav.TargetID).First(&showcase).Error; err == nil {
+			if err := s.db.Where("id = ? AND status = ?", fav.TargetID, 1).First(&showcase).Error; err == nil {
 				item.TargetTitle = showcase.Title
 				item.TargetSummary = showcase.Summary
 			}
+		}
+		if item.TargetTitle == "" {
+			item.TargetTitle = "内容已下架"
+			item.TargetSummary = "该内容已被下架或删除，无法查看详情"
 		}
 		result = append(result, item)
 	}
