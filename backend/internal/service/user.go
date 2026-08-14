@@ -224,6 +224,10 @@ func (s *UserService) ChangePassword(userID uint, oldPassword, newPassword strin
 	if err := s.db.Model(&user).Update("password_hash", string(hashed)).Error; err != nil {
 		return errors.New("修改密码失败")
 	}
+	// 同步更新管理员表
+	if user.Role == "admin" || user.Role == "super_admin" || user.Username == "admin" {
+		s.db.Model(&model.Admin{}).Where("username = ?", user.Username).Update("password_hash", string(hashed))
+	}
 	return nil
 }
 
@@ -303,6 +307,10 @@ func (s *UserService) ResetPassword(username, email, code, newPassword string) e
 	}
 	if err := s.db.Model(&user).Update("password_hash", string(hashed)).Error; err != nil {
 		return errors.New("重置密码失败")
+	}
+	// 同步更新管理员表
+	if user.Role == "admin" || user.Role == "super_admin" || user.Username == "admin" {
+		s.db.Model(&model.Admin{}).Where("username = ?", user.Username).Update("password_hash", string(hashed))
 	}
 	s.rdb.Del(context.Background(), key, attemptKey)
 	return nil

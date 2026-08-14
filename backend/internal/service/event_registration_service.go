@@ -43,15 +43,6 @@ func (s *EventRegistrationService) Register(eventID, userID uint) error {
 	if time.Now().After(event.StartTime) {
 		return errors.New("活动已开始，无法报名")
 	}
-	if event.Capacity > 0 {
-		var count int64
-		if err := s.db.Model(&model.EventRegistration{}).Where("event_id = ?", eventID).Count(&count).Error; err != nil {
-			return errors.New("系统繁忙，请稍后再试")
-		}
-		if count >= int64(event.Capacity) {
-			return errors.New("活动名额已满")
-		}
-	}
 	location := event.Location
 	if location == "" {
 		location = "待定"
@@ -63,6 +54,15 @@ func (s *EventRegistrationService) Register(eventID, userID uint) error {
 		RegisteredAt: time.Now(),
 	}
 	err := s.db.Transaction(func(tx *gorm.DB) error {
+		if event.Capacity > 0 {
+			var count int64
+			if err := tx.Model(&model.EventRegistration{}).Where("event_id = ?", eventID).Count(&count).Error; err != nil {
+				return errors.New("系统繁忙，请稍后再试")
+			}
+			if count >= int64(event.Capacity) {
+				return errors.New("活动名额已满")
+			}
+		}
 		if err := tx.Create(&reg).Error; err != nil {
 			return errors.New("报名失败，可能已报名过该活动")
 		}

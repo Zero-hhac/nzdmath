@@ -129,6 +129,8 @@ func (s *AdminService) ChangePassword(adminID uint, oldPassword, newPassword str
 	if err := s.db.Model(&admin).Update("password_hash", string(hashed)).Error; err != nil {
 		return errors.New("修改密码失败")
 	}
+	// 同步更新会员用户表
+	s.db.Model(&model.User{}).Where("username = ?", admin.Username).Update("password_hash", string(hashed))
 	return nil
 }
 

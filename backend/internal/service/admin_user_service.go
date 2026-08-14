@@ -73,16 +73,20 @@ func (s *AdminUserService) ResetPassword(id uint, newPassword string) error {
 	if err := utils.ValidatePasswordStrength(newPassword); err != nil {
 		return err
 	}
+	var user model.User
+	if err := s.db.First(&user, id).Error; err != nil {
+		return errors.New("用户不存在")
+	}
 	hashed, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return errors.New("密码加密失败")
 	}
-	res := s.db.Model(&model.User{}).Where("id = ?", id).Update("password_hash", string(hashed))
+	res := s.db.Model(&user).Update("password_hash", string(hashed))
 	if res.Error != nil {
 		return res.Error
 	}
-	if res.RowsAffected == 0 {
-		return errors.New("用户不存在")
+	if user.Role == "admin" || user.Role == "super_admin" || user.Username == "admin" {
+		s.db.Model(&model.Admin{}).Where("username = ?", user.Username).Update("password_hash", string(hashed))
 	}
 	return nil
 }
