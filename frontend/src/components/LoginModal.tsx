@@ -5,16 +5,12 @@ import { useAuth } from '@/src/lib/auth';
 import { useToast } from '@/src/lib/toast';
 import { api, DEPARTMENTS } from '@/src/lib/api';
 
-type LoginMode = 'user' | 'admin';
-
 type Props = {
   open: boolean;
   onClose: () => void;
-  defaultMode?: LoginMode;
 };
 
-export const LoginModal: React.FC<Props> = ({ open, onClose, defaultMode = 'user' }) => {
-  const [mode, setMode] = useState<LoginMode>(defaultMode);
+export const LoginModal: React.FC<Props> = ({ open, onClose }) => {
   const [isRegistering, setIsRegistering] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -33,7 +29,7 @@ export const LoginModal: React.FC<Props> = ({ open, onClose, defaultMode = 'user
   const [resetPwd, setResetPwd] = useState('');
   const [resetConfirm, setResetConfirm] = useState('');
 
-  const { loginUser, loginAdmin } = useAuth();
+  const { loginUser } = useAuth();
   const { showToast } = useToast();
 
   const submit = async (e: React.FormEvent) => {
@@ -109,12 +105,11 @@ export const LoginModal: React.FC<Props> = ({ open, onClose, defaultMode = 'user
         setIsRegistering(false);
         setPassword('');
       } else {
-        if (mode === 'user') {
-          await loginUser(username, password);
-          showToast('登录成功', 'success');
+        const res = await loginUser(username.trim(), password);
+        if (res.isAdmin) {
+          showToast('欢迎回来，管理员！', 'success');
         } else {
-          await loginAdmin(username, password);
-          showToast('管理员登录成功', 'success');
+          showToast('登录成功，欢迎回来！', 'success');
         }
         onClose();
         setUsername('');
@@ -157,7 +152,7 @@ export const LoginModal: React.FC<Props> = ({ open, onClose, defaultMode = 'user
               </div>
               <div>
                 <h3 className="text-xl font-serif text-primary">
-                  {forgotStep ? '找回密码' : isRegistering ? '会员注册' : mode === 'user' ? '会员登录' : '管理员登录'}
+                  {forgotStep ? '找回密码' : isRegistering ? '会员注册' : '会员登录'}
                 </h3>
                 <p className="text-xs text-zinc-500">
                   {forgotStep === 'request'
@@ -166,35 +161,10 @@ export const LoginModal: React.FC<Props> = ({ open, onClose, defaultMode = 'user
                       ? '输入邮箱收到的验证码并设置新密码'
                       : isRegistering
                         ? '创建新会员账号'
-                        : mode === 'user'
-                          ? '登录后可使用会员专区'
-                          : '仅限管理员访问后台'}
+                        : '登录后可使用会员专区'}
                 </p>
               </div>
             </div>
-
-            {!isRegistering && !forgotStep && (
-              <div className="flex gap-2 mb-6 p-1 bg-zinc-100 rounded-2xl">
-                <button
-                  type="button"
-                  onClick={() => { setMode('user'); setError(''); }}
-                  className={`flex-1 py-2 text-sm font-medium rounded-xl transition-all ${
-                    mode === 'user' ? 'bg-white shadow text-primary' : 'text-zinc-500'
-                  }`}
-                >
-                  会员
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setMode('admin'); setError(''); }}
-                  className={`flex-1 py-2 text-sm font-medium rounded-xl transition-all ${
-                    mode === 'admin' ? 'bg-white shadow text-primary' : 'text-zinc-500'
-                  }`}
-                >
-                  管理员
-                </button>
-              </div>
-            )}
 
             <form onSubmit={submit} className="space-y-4">
               <div>
@@ -206,7 +176,7 @@ export const LoginModal: React.FC<Props> = ({ open, onClose, defaultMode = 'user
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="app-input w-full rounded-xl py-3 px-4"
-                  placeholder={mode === 'admin' ? 'admin' : '请输入用户名'}
+                  placeholder="请输入用户名"
                   autoComplete="username"
                   autoFocus
                   readOnly={forgotStep === 'reset'}
@@ -390,7 +360,7 @@ export const LoginModal: React.FC<Props> = ({ open, onClose, defaultMode = 'user
               <button
                 type="submit"
                 disabled={loading}
-                className="btn-primary w-full !py-3 disabled:opacity-50"
+                className="btn-primary w-full !py-3 disabled:opacity-50 cursor-pointer"
               >
                 {loading
                   ? '请稍候...'
@@ -403,14 +373,14 @@ export const LoginModal: React.FC<Props> = ({ open, onClose, defaultMode = 'user
                         : '登录'}
               </button>
 
-              {mode === 'user' && !isRegistering && !forgotStep && (
+              {!isRegistering && !forgotStep && (
                 <div className="flex items-center justify-between text-xs text-zinc-400">
                   <span>
                     还没有账号？
                     <button
                       type="button"
                       onClick={() => { setIsRegistering(true); setError(''); }}
-                      className="text-primary ml-1"
+                      className="text-primary ml-1 cursor-pointer font-medium"
                     >
                       立即注册
                     </button>
@@ -418,7 +388,7 @@ export const LoginModal: React.FC<Props> = ({ open, onClose, defaultMode = 'user
                   <button
                     type="button"
                     onClick={() => { setForgotStep('request'); setError(''); setNotice(''); }}
-                    className="text-primary"
+                    className="text-primary cursor-pointer font-medium"
                   >
                     忘记密码？
                   </button>
@@ -430,7 +400,7 @@ export const LoginModal: React.FC<Props> = ({ open, onClose, defaultMode = 'user
                   <button
                     type="button"
                     onClick={() => { setIsRegistering(false); setError(''); }}
-                    className="text-primary ml-1"
+                    className="text-primary ml-1 cursor-pointer font-medium"
                   >
                     返回登录
                   </button>
@@ -442,7 +412,7 @@ export const LoginModal: React.FC<Props> = ({ open, onClose, defaultMode = 'user
                   <button
                     type="button"
                     onClick={() => { setForgotStep(null); setError(''); setNotice(''); setResetCode(''); setResetPwd(''); setResetConfirm(''); }}
-                    className="text-primary ml-1"
+                    className="text-primary ml-1 cursor-pointer font-medium"
                   >
                     返回登录
                   </button>

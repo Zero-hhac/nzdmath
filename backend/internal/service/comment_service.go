@@ -32,6 +32,27 @@ var validTargetTypes = map[string]bool{
 	"event": true, "news": true, "resource": true, "showcase": true,
 }
 
+func (s *CommentService) validateTarget(targetType string, targetID uint) error {
+	var count int64
+	var err error
+	switch targetType {
+	case "event":
+		err = s.db.Model(&model.Event{}).Where("id = ? AND status = 1", targetID).Count(&count).Error
+	case "news":
+		err = s.db.Model(&model.News{}).Where("id = ? AND status = 1", targetID).Count(&count).Error
+	case "resource":
+		err = s.db.Model(&model.Resource{}).Where("id = ? AND status = 1", targetID).Count(&count).Error
+	case "showcase":
+		err = s.db.Model(&model.Showcase{}).Where("id = ? AND status = 1", targetID).Count(&count).Error
+	default:
+		return errors.New("不支持的评论目标类型")
+	}
+	if err != nil || count == 0 {
+		return errors.New("评论的主体不存在或未发布")
+	}
+	return nil
+}
+
 func (s *CommentService) Create(userID uint, p CreateCommentParams) (*model.Comment, error) {
 	if p.Content == "" {
 		return nil, errors.New("评论内容不能为空")
@@ -45,6 +66,12 @@ func (s *CommentService) Create(userID uint, p CreateCommentParams) (*model.Comm
 	if p.Rating < 0 || p.Rating > 5 {
 		return nil, errors.New("评分需在 0-5 之间")
 	}
+
+	// 校验目标主体合法性
+	if err := s.validateTarget(p.TargetType, p.TargetID); err != nil {
+		return nil, err
+	}
+
 	if p.ParentID != nil {
 		var parent model.Comment
 		if err := s.db.First(&parent, *p.ParentID).Error; err != nil {
@@ -52,6 +79,13 @@ func (s *CommentService) Create(userID uint, p CreateCommentParams) (*model.Comm
 		}
 		if parent.ParentID != nil {
 			return nil, errors.New("暂不支持多层回复")
+		}
+		// 校验实体一致性，防止跨实体挂载
+		if parent.TargetType != p.TargetType || parent.TargetID != p.TargetID {
+			return nil, errors.New("回复目标与父评论所属内容不一致")
+		}
+		if parent.Status != 1 {
+			return nil, errors.New("父评论已被隐藏或删除")
 		}
 	}
 	comment := &model.Comment{
@@ -63,12 +97,20 @@ func (s *CommentService) Create(userID uint, p CreateCommentParams) (*model.Comm
 		ParentID:   p.ParentID,
 		Status:     1,
 	}
-	if err := s.db.Create(comment).Error; err != nil {
-		return nil, errors.New("发表评论失败")
-	}
-	if p.ParentID != nil {
-		s.db.Model(&model.Comment{}).Where("id = ?", *p.ParentID).
-			UpdateColumn("reply_count", gorm.Expr("reply_count + 1"))
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(comment).Error; err != nil {
+			return errors.New("发表评论失败")
+		}
+		if p.ParentID != nil {
+			if err := tx.Model(&model.Comment{}).Where("id = ?", *p.ParentID).
+				UpdateColumn("reply_count", gorm.Expr("reply_count + 1")).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return comment, nil
 }
@@ -123,10 +165,25 @@ func (s *CommentService) Delete(userID, commentID uint) error {
 	if comment.UserID != userID {
 		return ErrCommentForbidden
 	}
-	if err := s.db.Delete(&model.Comment{}, commentID).Error; err != nil {
-		return err
-	}
-	return nil
+
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Delete(&model.Comment{}, commentID).Error; err != nil {
+			return err
+		}
+		// 删除子回复时递减父评论计数器
+		if comment.ParentID != nil {
+			if err := tx.Model(&model.Comment{}).Where("id = ?", *comment.ParentID).
+				UpdateColumn("reply_count", gorm.Expr("GREATEST(reply_count - 1, 0)")).Error; err != nil {
+				return err
+			}
+		} else {
+			// 删除主评论时级联清理所有子回复
+			if err := tx.Where("parent_id = ?", commentID).Delete(&model.Comment{}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (s *CommentService) ToggleLike(userID, commentID uint) (bool, error) {

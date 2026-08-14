@@ -1,5 +1,7 @@
 package dto
 
+import "time"
+
 type ResourceListItem struct {
 	ID            uint   `json:"id"`
 	Title         string `json:"title"`
@@ -24,3 +26,15 @@ type ResourceDetail struct {
 	ViewCount     int    `json:"view_count"`
 	CreatedAt     string `json:"created_at"`
 }
+
+type MyDownloadItem struct {
+	ID            uint      `json:"id"`
+	ResourceID    uint      `json:"resource_id"`
+	ResourceTitle string    `json:"resource_title"`
+	FileName      string    `json:"file_name"`
+	FileSize      int64     `json:"file_size"`
+	CoverURL      string    `json:"cover_url"`
+	IP            string    `json:"ip"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+

@@ -20,7 +20,7 @@ export const Footer: React.FC<FooterProps> = ({ openOverlay }) => {
     {
       label: '联系支持',
       title: '联系支持',
-      body: '支持通道已覆盖资源反馈、活动咨询、会员申请和后台协作。你可以通过 `math_assoc@uni.edu`、教学楼 A 区 3 楼值班台，或会员专区内的工单入口联系协会。',
+      body: '支持通道已覆盖资源反馈、活动咨询、会员申请和后台协作。你可以通过 `eroz7946@gmail.com`、教学楼 A 区 3 楼值班台，或会员专区内的工单入口联系协会。',
     },
     {
       label: '学术诚信',

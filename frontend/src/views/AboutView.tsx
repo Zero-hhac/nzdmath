@@ -82,7 +82,7 @@ export const AboutView: React.FC<ViewProps> = ({ navigate, openOverlay }) => {
         <div className="flex flex-col sm:flex-row justify-center gap-4">
            <div className="flex flex-col items-center gap-2">
               <Mail className="h-7 w-7 text-primary" />
-              <span className="text-xs font-bold text-zinc-500">math_assoc@uni.edu</span>
+              <span className="text-xs font-bold text-zinc-500">eroz7946@gmail.com</span>
            </div>
            <div className="hidden sm:block w-px h-12 bg-zinc-200"></div>
            <div className="flex flex-col items-center gap-2">

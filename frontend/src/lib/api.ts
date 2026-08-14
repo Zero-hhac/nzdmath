@@ -10,8 +10,12 @@ export const api = {
   getNews: (page = 1, pageSize = 10) => request(`/news?page=${page}&page_size=${pageSize}`),
   getNewsDetail: (id: number) => request(`/news/${id}`),
   getResources: () => request('/resources'),
-  getResource: (id: number) => request(`/resources/${id}`),
-  downloadResource: (id: number) => `/api/v1/resources/download/${id}`,
+  downloadResource: (id: number) => {
+    const token = tokenStore.getUser();
+    return token
+      ? `/api/v1/resources/download/${id}?token=${encodeURIComponent(token)}`
+      : `/api/v1/resources/download/${id}`;
+  },
   getShowcases: (params?: Record<string, string>) =>
     request('/showcases' + (params ? '?' + new URLSearchParams(params) : '')),
   getShowcase: (id: number) => request(`/showcases/${id}`),
@@ -19,7 +23,7 @@ export const api = {
     request(`/comments?target_type=${targetType}&target_id=${targetId}&page=${page}`),
 
   userLogin: (username: string, password: string) =>
-    request<{ token: string; user: any }>('/auth/login', {
+    request<{ token: string; admin_token?: string; is_admin?: boolean; user: any }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ username, password }),
     }),
@@ -107,6 +111,30 @@ export const api = {
   sendChatFile: (formData: FormData) =>
     request('/chat/messages/file', { method: 'POST', body: formData }),
   deleteChatMessage: (id: number) => request(`/chat/messages/${id}`, { method: 'DELETE' }),
+
+  // 会员与管理员 1 对 1 私聊
+  getDirectMessages: (options: { beforeId?: number; limit?: number } = {}) => {
+    const params = new URLSearchParams();
+    if (options.beforeId) params.set('before_id', String(options.beforeId));
+    if (options.limit) params.set('limit', String(options.limit));
+    const query = params.toString();
+    return request<{
+      messages: any[];
+      has_more: boolean;
+      next_before_id: number;
+    }>(`/member/direct-messages${query ? '?' + query : ''}`);
+  },
+  sendDirectText: (content: string) =>
+    request('/member/direct-messages', {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    }),
+  sendDirectFile: (formData: FormData) =>
+    request('/member/direct-messages/file', { method: 'POST', body: formData }),
+  markDirectRead: () =>
+    request('/member/direct-messages/read', { method: 'POST' }),
+  getDirectUnreadCount: () =>
+    request<{ unread_count: number }>('/member/direct-messages/unread-count'),
 
   adminLogin: (username: string, password: string) =>
     request<{ token: string; admin: any }>('/admin/auth/login', {
@@ -231,6 +259,51 @@ export const api = {
     }),
   adminListNotificationBatches: (page = 1, pageSize = 20) =>
     request(`/admin/notifications?page=${page}&page_size=${pageSize}`, { tokenType: 'admin' }),
+
+  // 管理员与会员私聊沟通
+  adminListDirectConversations: (params?: { keyword?: string; page?: number; page_size?: number }) => {
+    const query = new URLSearchParams();
+    if (params?.keyword) query.set('keyword', params.keyword);
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.page_size) query.set('page_size', String(params.page_size));
+    const qs = query.toString();
+    return request<{
+      conversations: any[];
+      total: number;
+      page: number;
+      page_size: number;
+    }>(`/admin/direct-messages/conversations${qs ? '?' + qs : ''}`, { tokenType: 'admin' });
+  },
+  adminGetDirectMessages: (userId: number, options: { beforeId?: number; limit?: number } = {}) => {
+    const params = new URLSearchParams();
+    if (options.beforeId) params.set('before_id', String(options.beforeId));
+    if (options.limit) params.set('limit', String(options.limit));
+    const query = params.toString();
+    return request<{
+      messages: any[];
+      has_more: boolean;
+      next_before_id: number;
+    }>(`/admin/direct-messages/users/${userId}${query ? '?' + query : ''}`, { tokenType: 'admin' });
+  },
+  adminSendDirectText: (userId: number, content: string) =>
+    request(`/admin/direct-messages/users/${userId}`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+      tokenType: 'admin',
+    }),
+  adminSendDirectFile: (userId: number, formData: FormData) =>
+    request(`/admin/direct-messages/users/${userId}/file`, {
+      method: 'POST',
+      body: formData,
+      tokenType: 'admin',
+    }),
+  adminMarkDirectRead: (userId: number) =>
+    request(`/admin/direct-messages/users/${userId}/read`, {
+      method: 'POST',
+      tokenType: 'admin',
+    }),
+  adminGetDirectUnreadCount: () =>
+    request<{ unread_count: number }>('/admin/direct-messages/unread-count', { tokenType: 'admin' }),
 };
 
 export { tokenStore };

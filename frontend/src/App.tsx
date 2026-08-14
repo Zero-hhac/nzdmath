@@ -85,8 +85,11 @@ function AppShell() {
 
   const openOverlay = (config: OverlayConfig) => setOverlay(config);
 
+  const isChat = location.pathname === '/chat';
+  const isAdmin = location.pathname === '/admin';
+
   return (
-    <div className="min-h-screen flex flex-col selection:bg-charcoal/10 selection:text-charcoal">
+    <div className={`min-h-screen flex flex-col selection:bg-charcoal/10 selection:text-charcoal ${isChat ? 'h-[100dvh] overflow-hidden' : ''}`}>
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[130] focus:rounded-full focus:bg-charcoal focus:px-4 focus:py-2 focus:text-white"
@@ -96,12 +99,23 @@ function AppShell() {
       <MathBackground />
       <Navbar activeTab={activeTab} setActiveTab={go} />
 
-      <main id="main-content" tabIndex={-1} className="flex-grow pt-28 md:pt-32 pb-24 md:pb-32 px-4 sm:px-6 md:px-10 max-w-6xl mx-auto w-full">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className={`flex-grow w-full max-w-6xl mx-auto ${
+          isChat
+            ? 'pt-20 md:pt-24 pb-3 px-3 sm:px-6 h-[100dvh] flex flex-col min-h-0 overflow-hidden'
+            : isAdmin
+            ? 'pt-20 md:pt-24 pb-8 px-4 sm:px-6 md:px-8'
+            : 'pt-28 md:pt-32 pb-24 md:pb-32 px-4 sm:px-6 md:px-10'
+        }`}
+      >
         <motion.div
           key={location.pathname}
           initial={{ opacity: 0, x: 10 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.3, ease: 'easeInOut' }}
+          className={isChat ? 'flex-1 flex flex-col min-h-0 h-full' : ''}
         >
           <Suspense fallback={<PageLoading />}>
             <Routes>
@@ -120,7 +134,7 @@ function AppShell() {
         </motion.div>
       </main>
 
-      <Footer openOverlay={openOverlay} />
+      {!isChat && <Footer openOverlay={openOverlay} />}
       <AppOverlay overlay={overlay} onClose={() => setOverlay(null)} />
     </div>
   );

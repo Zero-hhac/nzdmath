@@ -47,6 +47,17 @@ func (c *Cache) Set(ctx context.Context, key string, value any, ttl time.Duratio
 	}
 }
 
+func (c *Cache) SetNX(ctx context.Context, key string, value any, ttl time.Duration) bool {
+	if c == nil || c.rdb == nil {
+		return true
+	}
+	ok, err := c.rdb.SetNX(ctx, key, value, ttl).Result()
+	if err != nil {
+		return true
+	}
+	return ok
+}
+
 func (c *Cache) Del(ctx context.Context, keys ...string) {
 	if c == nil || c.rdb == nil || len(keys) == 0 {
 		return

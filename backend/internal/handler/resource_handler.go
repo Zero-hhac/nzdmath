@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math-top/internal/response"
 	"math-top/internal/service"
+	"math-top/internal/utils"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -101,6 +102,11 @@ func (h *ResourceHandler) Download(c *gin.Context) {
 		return
 	}
 
+	// 若为已登录用户下载，记录下载日志
+	if userID := h.resolveUserID(c); userID > 0 {
+		_ = h.svc.RecordDownload(userID, uint(id), c.ClientIP(), c.Request.UserAgent())
+	}
+
 	ext := strings.ToLower(filepath.Ext(resource.FileName))
 	inlineExts := map[string]bool{".pdf": true, ".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true, ".txt": true}
 	disposition := "attachment"
@@ -111,6 +117,24 @@ func (h *ResourceHandler) Download(c *gin.Context) {
 	safeName := strings.NewReplacer("\r", "", "\n", "", `"`, "").Replace(resource.FileName)
 	c.Header("Content-Disposition", fmt.Sprintf(`%s; filename="%s"`, disposition, safeName))
 	c.File(resource.FilePath)
+}
+
+func (h *ResourceHandler) resolveUserID(c *gin.Context) uint {
+	token := ""
+	auth := c.GetHeader("Authorization")
+	if strings.HasPrefix(auth, "Bearer ") {
+		token = strings.TrimPrefix(auth, "Bearer ")
+	} else if qToken := c.Query("token"); qToken != "" {
+		token = qToken
+	}
+	if token == "" {
+		return 0
+	}
+	claims, err := utils.ParseToken(token)
+	if err != nil {
+		return 0
+	}
+	return claims.UserID
 }
 
 func (h *ResourceHandler) MyDownloads(c *gin.Context) {

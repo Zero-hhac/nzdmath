@@ -2,16 +2,18 @@ import { useState } from 'react';
 import {
   Activity, User, ShieldCheck,
   FileText, LogIn, LogOut, MessageSquare, KeyRound, Bell, CalendarCheck,
+  Headphones,
 } from 'lucide-react';
 import type { ViewProps } from '@/src/types/app';
 import { useAuth } from '@/src/lib/auth';
 import { useToast } from '@/src/lib/toast';
-import { AdminLoginModal } from './admin/AdminLoginModal';
+import { LoginModal } from '@/src/components/LoginModal';
 import { DashboardPanel } from './admin/DashboardPanel';
 import { ContentPanel } from './admin/ContentPanel';
 import { UsersPanel } from './admin/UsersPanel';
 import { CommentsPanel } from './admin/CommentsPanel';
 import { AdminRegistrationsPanel } from './admin/AdminRegistrationsPanel';
+import { DirectChatPanel } from './admin/DirectChatPanel';
 import { NotificationsPanel } from './admin/NotificationsPanel';
 import { AccountPanel } from './admin/AccountPanel';
 import type { SubView, ContentType } from './admin/types';
@@ -27,26 +29,28 @@ export const AdminView: React.FC<ViewProps> = () => {
     return (
       <div className="text-center py-20">
         <ShieldCheck className="w-16 h-16 text-zinc-300 mx-auto mb-4" />
-        <h2 className="text-2xl font-serif text-primary mb-2">需要管理员登录</h2>
-        <p className="text-zinc-500 mb-6">请登录后访问后台管理</p>
-        <button onClick={() => setLoginOpen(true)} className="btn-primary flex items-center gap-2 mx-auto">
-          <LogIn className="w-4 h-4" /> 管理员登录
+        <h2 className="text-2xl font-serif text-primary mb-2">需要管理员权限</h2>
+        <p className="text-zinc-500 mb-6">请使用管理员账号登录后访问后台管理</p>
+        <button onClick={() => setLoginOpen(true)} className="btn-primary flex items-center gap-2 mx-auto cursor-pointer">
+          <LogIn className="w-4 h-4" /> 登录管理员账号
         </button>
-        <AdminLoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
+        <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
       </div>
     );
   }
 
   return (
-    <div className="space-y-12">
-      <header className="page-intro flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between rounded-3xl p-5 lg:p-8">
+    <div className={subView === 'direct_chat' ? 'space-y-4' : 'space-y-12'}>
+      <header className={`page-intro flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between rounded-3xl ${
+        subView === 'direct_chat' ? 'p-4 lg:p-5' : 'p-5 lg:p-8'
+      }`}>
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 lg:w-16 lg:h-16 rounded-full overflow-hidden border-4 border-white shadow-lg bg-primary/10 flex items-center justify-center shrink-0">
-            <ShieldCheck className="w-6 h-6 lg:w-7 lg:h-7 text-primary" />
+          <div className={`${subView === 'direct_chat' ? 'w-10 h-10 lg:w-12 lg:h-12' : 'w-12 h-12 lg:w-16 lg:h-16'} rounded-full overflow-hidden border-4 border-white shadow-lg bg-primary/10 flex items-center justify-center shrink-0`}>
+            <ShieldCheck className={`${subView === 'direct_chat' ? 'w-5 h-5 lg:w-6 lg:h-6' : 'w-6 h-6 lg:w-7 lg:h-7'} text-primary`} />
           </div>
           <div>
-            <h2 className="text-xl lg:text-2xl font-serif text-primary">管理员控制台</h2>
-            <p className="section-subtitle !text-sm">已登录为 {admin.username}</p>
+            <h2 className={`${subView === 'direct_chat' ? 'text-lg lg:text-xl' : 'text-xl lg:text-2xl'} font-serif text-primary`}>管理员控制台</h2>
+            <p className="section-subtitle !text-xs">已登录为 {admin.username}</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -64,6 +68,9 @@ export const AdminView: React.FC<ViewProps> = () => {
           </button>
           <button onClick={() => setSubView('comments')} className={subBtnCls(subView === 'comments')}>
             <MessageSquare className="w-4 h-4" /> 评论
+          </button>
+          <button onClick={() => setSubView('direct_chat')} className={subBtnCls(subView === 'direct_chat')}>
+            <Headphones className="w-4 h-4" /> 私信沟通
           </button>
           <button onClick={() => setSubView('notifications')} className={subBtnCls(subView === 'notifications')}>
             <Bell className="w-4 h-4" /> 通知
@@ -85,6 +92,7 @@ export const AdminView: React.FC<ViewProps> = () => {
       {subView === 'users' && <UsersPanel />}
       {subView === 'registrations' && <AdminRegistrationsPanel />}
       {subView === 'comments' && <CommentsPanel />}
+      {subView === 'direct_chat' && <DirectChatPanel />}
       {subView === 'notifications' && <NotificationsPanel />}
       {subView === 'account' && <AccountPanel />}
     </div>

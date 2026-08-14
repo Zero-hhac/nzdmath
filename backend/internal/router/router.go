@@ -64,6 +64,10 @@ func NewEngine() *gin.Engine {
 	chatStatic.Use(middleware.JWTAuthMiddleware(rdb))
 	chatStatic.Static("", filepath.Join(uploadBase, "chat"))
 
+	directStatic := r.Group("/uploads/direct")
+	directStatic.Use(middleware.JWTAuthMiddleware(rdb))
+	directStatic.Static("", filepath.Join(uploadBase, "direct"))
+
 	// 聊天室 WebSocket Hub（单实例内存版；多实例时在此接 Redis Pub/Sub）
 	hub := ws.NewHub()
 	go hub.Run()
@@ -110,6 +114,7 @@ func NewEngine() *gin.Engine {
 		&model.EventRegistration{},
 		&model.Notification{},
 		&model.NotificationBatch{},
+		&model.DirectMessage{},
 	); err != nil {
 		slog.Error("数据库迁移失败", "err", err)
 		panic(err)
@@ -144,7 +149,7 @@ func NewEngine() *gin.Engine {
 
 	registerPublicRoutes(r, db, rdb, c)
 	registerAuthRoutes(r, db, rdb, c, hub, broadcastFn, notifyFn)
-	registerAdminRoutes(r, db, rdb, c, broadcastFn, notifyFn)
+	registerAdminRoutes(r, db, rdb, c, hub, broadcastFn, notifyFn)
 
 	// 通知实时推送 WebSocket：与聊天室共用 Hub、同子协议鉴权，但不触发聊天室在线状态
 	notifyWSHandler := handler.NewNotifyWSHandler(hub, rdb)
@@ -228,6 +233,7 @@ func registerAuthRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, c *cache.
 	eventRegService := service.NewEventRegistrationService(db, rdb)
 	eventRegService.SetNotifier(notifyFn)
 	notificationService := service.NewNotificationService(db)
+	directMessageService := service.NewDirectMessageService(db, hub)
 
 	userHandler := handler.NewUserHandler(userService)
 	memberHandler := handler.NewMemberHandler(memberService)
@@ -238,6 +244,7 @@ func registerAuthRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, c *cache.
 	chatHandler := handler.NewChatHandler(chatService)
 	eventRegHandler := handler.NewEventRegistrationHandler(eventRegService)
 	notificationHandler := handler.NewNotificationHandler(notificationService)
+	directMessageHandler := handler.NewDirectMessageHandler(directMessageService)
 
 	auth := r.Group("/api/v1")
 	auth.Use(middleware.JWTAuthMiddleware(rdb))
@@ -268,6 +275,13 @@ func registerAuthRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, c *cache.
 		auth.POST("/chat/leave", chatHandler.Leave)
 		auth.DELETE("/chat/messages/:id", chatHandler.Delete)
 
+		// 会员与管理员私聊
+		auth.GET("/member/direct-messages", directMessageHandler.GetMyMessages)
+		auth.POST("/member/direct-messages", chatLimit, directMessageHandler.SendUserMessage)
+		auth.POST("/member/direct-messages/file", uploadLimit, directMessageHandler.SendUserFile)
+		auth.POST("/member/direct-messages/read", directMessageHandler.MarkUserRead)
+		auth.GET("/member/direct-messages/unread-count", directMessageHandler.GetUnreadCountForUser)
+
 		// 活动报名
 		auth.POST("/member/events/:id/register", eventRegHandler.Register)
 		auth.DELETE("/member/events/:id/register", eventRegHandler.Cancel)
@@ -286,7 +300,7 @@ func registerAuthRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, c *cache.
 	r.Group("/api/v1").GET("/chat/ws", wsLimit, chatWSHandler.Handle)
 }
 
-func registerAdminRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, c *cache.Cache, broadcastFn func(string, interface{}), notifyFn func([]uint)) {
+func registerAdminRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, c *cache.Cache, hub *ws.Hub, broadcastFn func(string, interface{}), notifyFn func([]uint)) {
 	adminService := service.NewAdminService(db, rdb)
 	adminEventService := service.NewAdminEventService(db)
 	adminNewsService := service.NewAdminNewsService(db)
@@ -301,6 +315,7 @@ func registerAdminRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, c *cache
 	eventRegService := service.NewEventRegistrationService(db, rdb)
 	notificationService := service.NewNotificationService(db)
 	notificationService.SetNotifier(notifyFn)
+	directMessageService := service.NewDirectMessageService(db, hub)
 
 	adminHandler := handler.NewAdminHandler(adminService)
 	adminEventHandler := handler.NewAdminEventHandler(adminEventService)
@@ -313,6 +328,7 @@ func registerAdminRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, c *cache
 	resourceHandler := handler.NewResourceHandler(resourceService)
 	eventRegHandler := handler.NewEventRegistrationHandler(eventRegService)
 	notificationHandler := handler.NewNotificationHandler(notificationService)
+	directMessageHandler := handler.NewDirectMessageHandler(directMessageService)
 
 	admin := r.Group("/api/v1/admin")
 	adminLimit := middleware.RateLimitMiddleware(rdb, 20, time.Minute)
@@ -322,6 +338,7 @@ func registerAdminRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, c *cache
 	auth := admin.Group("")
 	auth.Use(middleware.AdminJWTAuthMiddleware(rdb))
 	auth.Use(middleware.AdminAuthMiddleware())
+	uploadLimit := middleware.RateLimitMiddleware(rdb, 50, time.Hour)
 	{
 		auth.PUT("/auth/password", adminHandler.ChangePassword)
 		auth.GET("/dashboard", adminHandler.Dashboard)
@@ -378,6 +395,14 @@ func registerAdminRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, c *cache
 
 		auth.GET("/chat/messages", adminChatHandler.List)
 		auth.DELETE("/chat/messages/:id", adminChatHandler.Delete)
+
+		// 管理员与会员私聊沟通
+		auth.GET("/direct-messages/conversations", directMessageHandler.AdminListConversations)
+		auth.GET("/direct-messages/users/:id", directMessageHandler.AdminGetMessages)
+		auth.POST("/direct-messages/users/:id", directMessageHandler.AdminSendMessage)
+		auth.POST("/direct-messages/users/:id/file", uploadLimit, directMessageHandler.AdminSendFile)
+		auth.POST("/direct-messages/users/:id/read", directMessageHandler.AdminMarkRead)
+		auth.GET("/direct-messages/unread-count", directMessageHandler.AdminGetTotalUnread)
 
 		// 通知管理（单个/部门/全部发送 + 发送记录）
 		auth.POST("/notifications", notificationHandler.Send)

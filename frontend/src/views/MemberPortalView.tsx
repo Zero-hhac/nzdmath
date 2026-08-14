@@ -24,8 +24,12 @@ type Favorite = {
 
 type Download = {
   id: number;
-  user_id: number;
+  user_id?: number;
   resource_id: number;
+  resource_title?: string;
+  file_name?: string;
+  file_size?: number;
+  cover_url?: string;
   ip?: string;
   created_at: string;
 };
@@ -231,8 +235,7 @@ function ProfileEditor({ user, onSaved, showToast }: { user: any; onSaved: () =>
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await api.uploadAvatar(fd);
-      await api.updateProfile({ avatar: res.data.avatar });
+      await api.uploadAvatar(fd);
       await onSaved();
       showToast('头像已更新', 'success');
     } catch (err: any) {
@@ -412,8 +415,9 @@ function DownloadsView({ showToast }: { showToast: (m: string, t?: any) => void 
                 <Download className="w-5 h-5 text-primary" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-zinc-800">资源 #{d.resource_id}</div>
-                <div className="text-xs text-zinc-500 mt-1 flex items-center gap-3">
+                <div className="font-medium text-zinc-800">{d.resource_title || `资源 #${d.resource_id}`}</div>
+                <div className="text-xs text-zinc-500 mt-1 flex flex-wrap items-center gap-3">
+                  {d.file_name && <span className="font-mono text-zinc-600 truncate max-w-[200px]">{d.file_name}</span>}
                   <span className="flex items-center gap-1">
                     <Clock className="w-3 h-3" />
                     {new Date(d.created_at).toLocaleString('zh-CN')}

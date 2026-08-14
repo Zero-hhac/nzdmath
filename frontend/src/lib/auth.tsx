@@ -23,10 +23,11 @@ export type AdminInfo = {
 type AuthContextType = {
   user: UserInfo | null;
   admin: AdminInfo | null;
+  isAdmin: boolean;
   loading: boolean;
   setUser: (u: UserInfo | null) => void;
   setAdmin: (a: AdminInfo | null) => void;
-  loginUser: (username: string, password: string) => Promise<void>;
+  loginUser: (username: string, password: string) => Promise<{ isAdmin: boolean; user: UserInfo }>;
   loginAdmin: (username: string, password: string) => Promise<void>;
   logoutUser: () => Promise<void>;
   logoutAdmin: () => Promise<void>;
@@ -43,65 +44,104 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshUser = async () => {
     if (!tokenStore.getUser()) {
       setUser(null);
+      setAdmin(null);
       return;
     }
     try {
       const res = await api.getProfile();
-      setUser(res.data);
+      const u = res.data;
+      setUser(u);
+      if (u.role === 'admin' || u.role === 'super_admin' || u.username === 'admin') {
+        setAdmin({ id: u.id, username: u.username, role: u.role });
+      } else if (tokenStore.getAdmin()) {
+        try {
+          const dashRes = await api.adminDashboard();
+          if (dashRes.code === 200 || dashRes.code === 0) {
+            setAdmin({ id: u.id, username: u.username, role: 'admin' });
+          }
+        } catch {
+          tokenStore.clearAdmin();
+          setAdmin(null);
+        }
+      } else {
+        setAdmin(null);
+      }
     } catch {
       tokenStore.clearUser();
+      tokenStore.clearAdmin();
       setUser(null);
+      setAdmin(null);
     }
   };
 
   useEffect(() => {
     (async () => {
       await refreshUser();
-      if (tokenStore.getAdmin()) {
-        try {
-          const res = await api.adminDashboard();
-          if (res.code === 200 || res.code === 0) {
-            setAdmin({ id: 0, username: 'admin' });
-          }
-        } catch {
-          tokenStore.clearAdmin();
-        }
-      }
       setLoading(false);
     })();
   }, []);
 
   const loginUser = async (username: string, password: string) => {
     const res = await api.userLogin(username, password);
-    tokenStore.setUser(res.data.token);
-    setUser(res.data.user);
+    const data = res.data;
+    tokenStore.setUser(data.token);
+    setUser(data.user);
+
+    const isAdm = Boolean(
+      data.is_admin ||
+      data.admin_token ||
+      data.user?.role === 'admin' ||
+      data.user?.role === 'super_admin' ||
+      data.user?.username === 'admin'
+    );
+
+    if (isAdm) {
+      if (data.admin_token) {
+        tokenStore.setAdmin(data.admin_token);
+      } else {
+        tokenStore.setAdmin(data.token);
+      }
+      setAdmin({ id: data.user.id, username: data.user.username, role: data.user.role || 'admin' });
+    } else {
+      tokenStore.clearAdmin();
+      setAdmin(null);
+    }
+
+    return { isAdmin: isAdm, user: data.user };
   };
 
   const loginAdmin = async (username: string, password: string) => {
-    const res = await api.adminLogin(username, password);
-    tokenStore.setAdmin(res.data.token);
-    setAdmin(res.data.admin);
+    await loginUser(username, password);
   };
 
   const logoutUser = async () => {
     try { await api.userLogout(); } catch {}
+    if (tokenStore.getAdmin()) {
+      try { await api.adminLogout(); } catch {}
+    }
     tokenStore.clearUser();
+    tokenStore.clearAdmin();
     setUser(null);
+    setAdmin(null);
   };
 
   const logoutAdmin = async () => {
-    try { await api.adminLogout(); } catch {}
-    tokenStore.clearAdmin();
-    setAdmin(null);
+    await logoutUser();
   };
 
   return (
     <AuthContext.Provider
       value={{
-        user, admin, loading,
-        setUser, setAdmin,
-        loginUser, loginAdmin,
-        logoutUser, logoutAdmin,
+        user,
+        admin,
+        isAdmin: Boolean(admin || user?.role === 'admin' || user?.role === 'super_admin' || user?.username === 'admin'),
+        loading,
+        setUser,
+        setAdmin,
+        loginUser,
+        loginAdmin,
+        logoutUser,
+        logoutAdmin,
         refreshUser,
       }}
     >

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
   Clock,
   Download,
@@ -11,6 +11,8 @@ import {
   Send,
   Users,
   X,
+  Headphones,
+  ShieldCheck,
 } from 'lucide-react';
 import type { ViewProps } from '@/src/types/app';
 import { api } from '@/src/lib/api';
@@ -34,6 +36,23 @@ type ChatMessage = {
   file_size?: number;
   file_ext?: string;
   created_at: string;
+};
+
+type DirectMessage = {
+  id: number;
+  user_id: number;
+  sender_type: 'user' | 'admin';
+  admin_id: number;
+  message_type: 'text' | 'image' | 'file';
+  content: string;
+  file_name: string;
+  file_url: string;
+  file_size: number;
+  file_ext: string;
+  is_read: boolean;
+  created_at: string;
+  sender_name: string;
+  sender_avatar: string;
 };
 
 const maxFileSize = 5 * 1024 * 1024;
@@ -73,9 +92,10 @@ function assetUrl(url?: string) {
 }
 
 export const ChatView: React.FC<ViewProps> = ({ navigate }) => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, isAdmin, loading: authLoading } = useAuth();
   const { showToast } = useToast();
   const [loginOpen, setLoginOpen] = useState(false);
+  const [chatMode, setChatMode] = useState<'public' | 'direct'>('public');
   const [joined, setJoined] = useState(false);
   const [joining, setJoining] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -87,8 +107,14 @@ export const ChatView: React.FC<ViewProps> = ({ navigate }) => {
   const [content, setContent] = useState('');
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
+
+  // 私聊专用状态
+  const [directMessages, setDirectMessages] = useState<DirectMessage[]>([]);
+  const [loadingDirect, setLoadingDirect] = useState(false);
+
   const fileRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const directBottomRef = useRef<HTMLDivElement>(null);
   const joinedRef = useRef(false);
   const lastMessageIdRef = useRef(0);
   const lastDeleteMsRef = useRef(0);
@@ -114,8 +140,12 @@ export const ChatView: React.FC<ViewProps> = ({ navigate }) => {
   }, []);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
+    if (chatMode === 'public') {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      directBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages.length, directMessages.length, chatMode]);
 
   const mergeMessages = (incoming: ChatMessage[]) => {
     if (!incoming.length) return;
@@ -148,105 +178,173 @@ export const ChatView: React.FC<ViewProps> = ({ navigate }) => {
       setOnlineCount(res.data.online_count || 0);
       setHasEarlier(Boolean(res.data.has_more));
       setBeforeId(res.data.next_before_id);
-      lastDeleteMsRef.current = res.data.deleted_at_ms || Date.now();
+      lastDeleteMsRef.current = res.data.deleted_at_ms || 0;
+    } catch (err: any) {
+      showToast(err.message || '加载消息失败', 'error');
     } finally {
       setLoadingMessages(false);
     }
   };
 
+  const loadDirectMessages = useCallback(async (isSilent = false) => {
+    if (!isSilent) setLoadingDirect(true);
+    try {
+      const res = await api.getDirectMessages({ limit: 100 });
+      setDirectMessages((res.data?.messages || []) as DirectMessage[]);
+      api.markDirectRead().catch(() => {});
+    } catch {
+      if (!isSilent) showToast('加载私聊记录失败', 'error');
+    } finally {
+      if (!isSilent) setLoadingDirect(false);
+    }
+  }, [showToast]);
+
+  // 当进入聊天并切换模式时，自动加载对应模式的数据并建立同步
+  useEffect(() => {
+    if (!joined) return;
+
+    if (chatMode === 'public') {
+      api.chatJoin()
+        .then((res) => {
+          if (typeof res.data?.online_count === 'number') {
+            setOnlineCount(res.data.online_count);
+          }
+        })
+        .catch(() => {});
+      loadHistory();
+    } else {
+      loadDirectMessages();
+      const timer = setInterval(() => {
+        loadDirectMessages(true);
+      }, 3500);
+      return () => clearInterval(timer);
+    }
+  }, [joined, chatMode, loadDirectMessages]);
+
+  const joinChat = () => {
+    if (!user) {
+      setLoginOpen(true);
+      return;
+    }
+    setJoining(true);
+    setChatMode('public');
+    setJoined(true);
+    setJoining(false);
+  };
+
+  const joinDirectChat = () => {
+    if (!user) {
+      setLoginOpen(true);
+      return;
+    }
+    setChatMode('direct');
+    setJoined(true);
+  };
+
+  const leaveChat = async () => {
+    try {
+      if (chatMode === 'public') {
+        await api.chatLeave();
+      }
+    } catch {}
+    setJoined(false);
+    setMessages([]);
+    setDirectMessages([]);
+  };
+
+  useEffect(() => {
+    if (!joined || chatMode !== 'public') return;
+
+    const cleanupWS = connectChatWS({
+      onMessage: (wsMsg) => {
+        if (wsMsg.type === 'message') {
+          if (wsMsg.data?.channel === 'direct') {
+            loadDirectMessages(true);
+          } else {
+            mergeMessages([wsMsg.data as ChatMessage]);
+          }
+        } else if (wsMsg.type === 'presence') {
+          if (typeof wsMsg.data?.online_count === 'number') {
+            setOnlineCount(wsMsg.data.online_count);
+          }
+        } else if (wsMsg.type === 'delete') {
+          if (wsMsg.data?.ids) {
+            applyDeletedMessages(wsMsg.data.ids);
+          }
+        }
+      },
+    });
+
+    const pollTimer = setInterval(async () => {
+      if (!joinedRef.current) return;
+      try {
+        const res = await api.getChatMessages({
+          afterId: lastMessageIdRef.current,
+          afterDeleteMs: lastDeleteMsRef.current,
+        });
+        if (res.data?.messages?.length) {
+          mergeMessages(res.data.messages as ChatMessage[]);
+        }
+        if (res.data?.deleted_ids?.length) {
+          applyDeletedMessages(res.data.deleted_ids);
+        }
+        if (res.data?.deleted_at_ms) {
+          lastDeleteMsRef.current = res.data.deleted_at_ms;
+        }
+        if (typeof res.data?.online_count === 'number') {
+          setOnlineCount(res.data.online_count);
+        }
+      } catch {}
+    }, 4000);
+
+    return () => {
+      clearInterval(pollTimer);
+      cleanupWS();
+    };
+  }, [joined, chatMode, loadDirectMessages]);
+
   const loadEarlier = async () => {
-    if (!beforeId || !hasEarlier || loadingEarlier) return;
+    if (!beforeId || loadingEarlier) return;
     setLoadingEarlier(true);
     try {
-      const res = await api.getChatMessages({ beforeId, limit: 50 });
-      mergeMessages((res.data.messages || []) as ChatMessage[]);
+      const res = await api.getChatMessages({ beforeId, limit: 30 });
+      const earlier = (res.data.messages || []) as ChatMessage[];
+      mergeMessages(earlier);
       setHasEarlier(Boolean(res.data.has_more));
       setBeforeId(res.data.next_before_id);
-      applyDeletedMessages(res.data.deleted_ids);
-      if (res.data.deleted_at_ms) lastDeleteMsRef.current = res.data.deleted_at_ms;
     } catch (err: any) {
-      showToast(err.message || '更早消息加载失败', 'error');
+      showToast(err.message || '加载历史消息失败', 'error');
     } finally {
       setLoadingEarlier(false);
     }
   };
 
-  const joinChat = async () => {
-    setJoining(true);
+  const recallMessage = async (msg: ChatMessage) => {
     try {
-      const joinedRes = await api.chatJoin();
-      setOnlineCount(joinedRes.data.online_count || 0);
-      setJoined(true);
-      await loadHistory();
-    } catch (err: any) {
-      showToast(err.message || '加入聊天室失败', 'error');
-    } finally {
-      setJoining(false);
-    }
-  };
-
-  const leaveChat = async () => {
-    try {
-      await api.chatLeave();
-    } catch {}
-    setJoined(false);
-    setOnlineCount(0);
-  };
-
-  useEffect(() => {
-    if (!joined) return undefined;
-
-    // WebSocket 实时通道：消息/撤回/在线数全走推送，替代原 2 秒轮询
-    return connectChatWS({
-      onMessage: (msg) => {
-        if (msg.type === 'message') {
-          mergeMessages([msg.data as ChatMessage]);
-        } else if (msg.type === 'delete') {
-          applyDeletedMessages(msg.data?.ids as number[] | undefined);
-        } else if (msg.type === 'presence') {
-          setOnlineCount(msg.data?.online_count || 0);
-        }
-      },
-      onClose: () => {
-        // ws.ts 会自动指数退避重连，这里仅提示
-        showToast('连接已断开，正在重连...', 'error');
-      },
-      onReconnect: () => {
-        // 重连成功：用 after_id 补齐断线期间的消息，避免漏收
-        if (!lastMessageIdRef.current) return;
-        api.getChatMessages({
-          afterId: lastMessageIdRef.current,
-          limit: 100,
-          afterDeleteMs: lastDeleteMsRef.current || undefined,
-        }).then((res) => {
-          mergeMessages((res.data.messages || []) as ChatMessage[]);
-          applyDeletedMessages(res.data.deleted_ids);
-          setOnlineCount(res.data.online_count || 0);
-          if (res.data.deleted_at_ms) lastDeleteMsRef.current = res.data.deleted_at_ms;
-        }).catch(() => {});
-      },
-    });
-  }, [joined, showToast]);
-
-  const recallMessage = async (message: ChatMessage) => {
-    try {
-      await api.deleteChatMessage(message.id);
-      setMessages((current) => current.filter((item) => item.id !== message.id));
+      await api.deleteChatMessage(msg.id);
+      applyDeletedMessages([msg.id]);
       showToast('消息已撤回', 'success');
     } catch (err: any) {
       showToast(err.message || '撤回失败', 'error');
     }
   };
 
-  const sendText = async (e?: React.FormEvent) => {
-    e?.preventDefault();
+  const sendText = async (e: React.FormEvent) => {
+    e.preventDefault();
     const text = content.trim();
     if (!text || sending) return;
+    setContent('');
     setSending(true);
     try {
-      const res = await api.sendChatText(text);
-      mergeMessages([res.data as ChatMessage]);
-      setContent('');
+      if (chatMode === 'public') {
+        const res = await api.sendChatText(text);
+        mergeMessages([res.data as ChatMessage]);
+      } else {
+        const res = await api.sendDirectText(text);
+        if (res.data) {
+          setDirectMessages((prev) => [...prev, res.data as DirectMessage]);
+        }
+      }
     } catch (err: any) {
       showToast(err.message || '发送失败', 'error');
     } finally {
@@ -277,8 +375,16 @@ export const ChatView: React.FC<ViewProps> = ({ navigate }) => {
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await api.sendChatFile(fd);
-      mergeMessages([res.data as ChatMessage]);
+      if (chatMode === 'public') {
+        const res = await api.sendChatFile(fd);
+        mergeMessages([res.data as ChatMessage]);
+      } else {
+        const res = await api.sendDirectFile(fd);
+        if (res.data) {
+          setDirectMessages((prev) => [...prev, res.data as DirectMessage]);
+        }
+      }
+      showToast('附件发送成功', 'success');
     } catch (err: any) {
       showToast(err.message || '上传失败', 'error');
     } finally {
@@ -293,19 +399,18 @@ export const ChatView: React.FC<ViewProps> = ({ navigate }) => {
   if (!user) {
     return (
       <>
-        <div className="space-y-8">
-          <div className="page-intro space-y-2">
-            <div className="section-kicker">Chat Room</div>
-            <h2 className="section-title">聊天室</h2>
-            <p className="section-subtitle">会员登录后进入</p>
-          </div>
-          <div className="sidebar-panel rounded-[2rem] p-10 text-center space-y-6">
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 mx-auto flex items-center justify-center">
-              <MessageCircle className="w-8 h-8 text-primary" />
+        <div className="h-full flex flex-col flex-1 min-h-0 justify-center py-6">
+          <div className="sidebar-panel rounded-[2.5rem] p-8 md:p-14 text-center space-y-6 max-w-xl mx-auto w-full shadow-lg border border-border/80">
+            <div className="w-20 h-20 rounded-3xl bg-primary/10 mx-auto flex items-center justify-center text-primary shadow-inner">
+              <MessageCircle className="w-10 h-10" />
             </div>
-            <button onClick={() => setLoginOpen(true)} className="btn-primary mx-auto">
+            <div className="space-y-2">
+              <h2 className="font-serif text-2xl md:text-3xl font-bold text-charcoal">聊天室需要登录</h2>
+              <p className="text-sm text-text-muted">请先登录你的会员账号以参与即时交流与文件讨论。</p>
+            </div>
+            <button onClick={() => setLoginOpen(true)} className="btn-primary mx-auto !py-3 !px-8 flex items-center gap-2">
               <LogIn className="w-4 h-4" />
-              登录
+              立即登录
             </button>
           </div>
         </div>
@@ -316,78 +421,202 @@ export const ChatView: React.FC<ViewProps> = ({ navigate }) => {
 
   if (!joined) {
     return (
-      <div className="space-y-8">
-        <div className="page-intro flex flex-col md:flex-row md:items-end md:justify-between gap-5">
+      <div className="h-full flex flex-col flex-1 min-h-0 justify-center py-6">
+        <div className="sidebar-panel rounded-[2.5rem] p-8 md:p-14 text-center space-y-6 max-w-xl mx-auto w-full shadow-lg border border-border/80">
+          <div className="w-20 h-20 rounded-3xl bg-primary/10 mx-auto flex items-center justify-center text-primary shadow-inner">
+            <Users className="w-10 h-10" />
+          </div>
           <div className="space-y-2">
-            <div className="section-kicker">Chat Room</div>
-            <h2 className="section-title">聊天室</h2>
-            <p className="section-subtitle">欢迎，{user.nickname || user.username}</p>
+            <h2 className="font-serif text-2xl md:text-3xl font-bold text-charcoal">数学交流聊天室</h2>
+            <p className="text-sm text-text-muted max-w-md mx-auto">
+              欢迎，{user.nickname || user.username}！加入聊天室与其他会员进行实时交流，或直接与协会管理团队 1 对 1 私信沟通。
+            </p>
           </div>
-          <button onClick={() => navigate('portal')} className="btn-secondary !py-2.5 !text-xs">
-            会员中心
-          </button>
-        </div>
-
-        <div className="sidebar-panel rounded-[2rem] p-10 text-center space-y-6">
-          <div className="w-16 h-16 rounded-2xl bg-pastel-blue mx-auto flex items-center justify-center">
-            <Users className="w-8 h-8 text-pastel-blue-text" />
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            <button onClick={joinChat} disabled={joining} className="btn-primary !py-3 !px-6 text-sm flex items-center gap-2 w-full sm:w-auto justify-center shadow-sm cursor-pointer">
+              <MessageCircle className="w-4 h-4" />
+              {joining ? '正在进入...' : '进入聊天室'}
+            </button>
+            <button
+              onClick={joinDirectChat}
+              className="px-5 py-3 rounded-full text-sm font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100/80 border border-emerald-200/80 flex items-center justify-center gap-1.5 w-full sm:w-auto transition-colors shadow-sm cursor-pointer"
+            >
+              <Headphones className="w-4 h-4 text-emerald-600" />
+              与管理员私聊
+            </button>
           </div>
-          <button onClick={joinChat} disabled={joining} className="btn-primary mx-auto">
-            <MessageCircle className="w-4 h-4" />
-            {joining ? '加入中...' : '加入聊天室'}
-          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="page-intro flex flex-col md:flex-row md:items-end md:justify-between gap-5">
-        <div className="space-y-2">
-          <div className="section-kicker">Chat Room</div>
-          <h2 className="section-title">聊天室</h2>
-          <p className="section-subtitle flex items-center gap-2">
-            <Users className="w-4 h-4" />
-            在线 {onlineCount} 人
-          </p>
-        </div>
-        <button onClick={leaveChat} className="btn-secondary !py-2.5 !text-xs">
-          <X className="w-4 h-4" />
-          离开聊天室
-        </button>
-      </div>
-
-      <div className="glass-card rounded-2xl overflow-hidden">
-        <div className="h-[52vh] min-h-[320px] md:h-[58vh] md:min-h-[460px] overflow-y-auto bg-canvas-alt/70 px-3 py-5 sm:px-4 md:px-6">
-          {loadingMessages ? (
-            <div className="text-center text-zinc-500 py-20">消息加载中...</div>
-          ) : messages.length === 0 ? (
-            <div className="text-center text-zinc-500 py-20">暂无消息</div>
-          ) : (
-            <div className="space-y-4">
-              {hasEarlier && (
-                <div className="flex justify-center pb-2">
-                  <button onClick={loadEarlier} disabled={loadingEarlier} className="btn-ghost !px-4 !py-2 !text-xs">
-                    <RotateCcw className={`h-3.5 w-3.5 ${loadingEarlier ? 'animate-spin' : ''}`} />
-                    {loadingEarlier ? '加载中' : '查看更早消息'}
-                  </button>
-                </div>
-              )}
-              {messages.map((msg) => (
-                <MessageItem
-                  key={msg.id}
-                  message={msg}
-                  mine={msg.user_id === user.id}
-                  onRecall={() => recallMessage(msg)}
-                />
-              ))}
-              <div ref={bottomRef} />
+    <div className="h-full flex flex-col flex-1 min-h-0 pb-1">
+      <div className="glass-card rounded-[2rem] overflow-hidden flex flex-col flex-1 min-h-0 border border-border/80 shadow-lg">
+        {/* 顶部标题栏 */}
+        <div className="px-5 md:px-7 py-3.5 border-b border-border/70 bg-surface/80 backdrop-blur-sm flex items-center justify-between gap-4 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
+              chatMode === 'public' ? 'bg-primary/10 text-primary' : 'bg-emerald-50 text-emerald-600'
+            }`}>
+              {chatMode === 'public' ? <MessageCircle className="w-5 h-5" /> : <Headphones className="w-5 h-5" />}
             </div>
+            <div>
+              <div className="flex items-center gap-2.5">
+                <h2 className="font-serif text-xl font-bold text-charcoal tracking-tight">
+                  {chatMode === 'public' ? '公共聊天室' : '与协会管理员私聊'}
+                </h2>
+                {chatMode === 'public' ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    在线 {onlineCount} 人
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    官方专属通道
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-text-muted mt-0.5">
+                {chatMode === 'public' ? '数学爱好者即时交流与学术分享' : '协会管理团队实时为你答疑解惑'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setChatMode(chatMode === 'public' ? 'direct' : 'public')}
+              className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-canvas-alt hover:bg-black/[0.04] border border-border text-zinc-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              {chatMode === 'public' ? (
+                <>
+                  <Headphones className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>切换管理员私聊</span>
+                </>
+              ) : (
+                <>
+                  <MessageCircle className="w-3.5 h-3.5 text-primary" />
+                  <span>切换公共大厅</span>
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={leaveChat}
+              className="btn-secondary !py-2 !px-4 !text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200/80 transition-colors flex items-center gap-1.5 shrink-0 rounded-xl cursor-pointer"
+              title="离开"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>退出</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 消息列表主体 */}
+        <div className="flex-1 min-h-0 overflow-y-auto bg-canvas-alt/40 px-4 sm:px-6 md:px-8 py-5">
+          {chatMode === 'public' ? (
+            loadingMessages ? (
+              <div className="h-full flex items-center justify-center text-zinc-400 text-sm">
+                <div className="flex items-center gap-2">
+                  <RotateCcw className="w-4 h-4 animate-spin text-primary" />
+                  <span>消息加载中...</span>
+                </div>
+              </div>
+            ) : messages.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-zinc-400 text-sm space-y-2">
+                <MessageCircle className="w-10 h-10 text-zinc-300" />
+                <span>暂无消息，发条消息打个招呼吧！</span>
+              </div>
+            ) : (
+              <div className="space-y-4 max-w-4xl mx-auto">
+                {hasEarlier && (
+                  <div className="flex justify-center pb-2">
+                    <button onClick={loadEarlier} disabled={loadingEarlier} className="btn-ghost !px-4 !py-2 !text-xs">
+                      <RotateCcw className={`h-3.5 w-3.5 ${loadingEarlier ? 'animate-spin' : ''}`} />
+                      {loadingEarlier ? '加载中' : '查看更早消息'}
+                    </button>
+                  </div>
+                )}
+                {messages.map((msg) => (
+                  <MessageItem
+                    key={msg.id}
+                    message={msg}
+                    mine={msg.user_id === user.id}
+                    isAdmin={isAdmin}
+                    onRecall={() => recallMessage(msg)}
+                  />
+                ))}
+                <div ref={bottomRef} />
+              </div>
+            )
+          ) : (
+            // 私聊模式
+            loadingDirect ? (
+              <div className="h-full flex items-center justify-center text-zinc-400 text-sm">
+                <div className="flex items-center gap-2">
+                  <RotateCcw className="w-4 h-4 animate-spin text-emerald-600" />
+                  <span>私聊记录加载中...</span>
+                </div>
+              </div>
+            ) : directMessages.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-zinc-400 text-sm space-y-2">
+                <Headphones className="w-10 h-10 text-emerald-400" />
+                <span>暂无私聊消息，在下方输入框向协会管理员留言吧！</span>
+              </div>
+            ) : (
+              <div className="space-y-4 max-w-4xl mx-auto">
+                {directMessages.map((msg) => {
+                  const isAdmin = msg.sender_type === 'admin';
+                  return (
+                    <div key={msg.id} className={`flex gap-3 ${!isAdmin ? 'justify-end' : 'justify-start'}`}>
+                      {isAdmin && (
+                        <div className="w-9 h-9 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center text-xs shrink-0 mt-0.5 shadow-sm">
+                          管
+                        </div>
+                      )}
+                      <div className={`flex flex-col max-w-[78%] ${!isAdmin ? 'items-end' : 'items-start'}`}>
+                        <div className={`flex items-center gap-2 text-[11px] text-text-muted mb-1 px-1 ${!isAdmin ? 'justify-end' : ''}`}>
+                          <span className="font-medium text-charcoal">{isAdmin ? '协会管理员' : '我'}</span>
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {formatTime(msg.created_at)}
+                          </span>
+                        </div>
+                        <div className={`w-fit max-w-full rounded-2xl px-4 py-2.5 text-xs sm:text-sm leading-relaxed shadow-sm break-words whitespace-pre-wrap ${
+                          !isAdmin
+                            ? 'bg-[#4c9eeb] text-white rounded-tr-md selection:bg-white/30 selection:text-white'
+                            : 'bg-white border border-border text-charcoal rounded-tl-md selection:bg-accent/10 selection:text-charcoal'
+                        }`}>
+                          {msg.message_type === 'text' && <div>{msg.content}</div>}
+                          {msg.message_type === 'image' && (
+                            <ChatFileImage message={{ file_url: msg.file_url, file_name: msg.file_name }} mine={!isAdmin} />
+                          )}
+                          {msg.message_type === 'file' && (
+                            <ChatFileDownload message={{ file_url: msg.file_url, file_name: msg.file_name, file_size: msg.file_size }} mine={!isAdmin} />
+                          )}
+                        </div>
+                      </div>
+                      {!isAdmin && (
+                        user.avatar ? (
+                          <img src={user.avatar} alt="" className="w-9 h-9 rounded-full object-cover border border-border shrink-0 mt-0.5" />
+                        ) : (
+                          <div className="w-9 h-9 rounded-full bg-pastel-blue text-pastel-blue-text font-bold flex items-center justify-center text-xs shrink-0 mt-0.5">
+                            {(user.real_name || user.username).slice(0, 1).toUpperCase()}
+                          </div>
+                        )
+                      )}
+                    </div>
+                  );
+                })}
+                <div ref={directBottomRef} />
+              </div>
+            )
           )}
         </div>
 
-        <form onSubmit={sendText} className="border-t border-border bg-surface p-4">
+        {/* 底部输入栏：统一高度居中对齐 */}
+        <form onSubmit={sendText} className="border-t border-border/80 bg-surface/90 backdrop-blur-sm px-4 py-3 shrink-0">
           <input
             ref={fileRef}
             type="file"
@@ -395,34 +624,34 @@ export const ChatView: React.FC<ViewProps> = ({ navigate }) => {
             onChange={handleFileChange}
             className="hidden"
           />
-          <div className="flex items-end gap-2 sm:gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3 max-w-4xl mx-auto">
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
               disabled={uploading}
-              className="btn-secondary !px-3 !py-3 shrink-0"
-              title="上传图片或文件"
+              className="h-11 w-11 flex items-center justify-center rounded-xl bg-canvas-alt hover:bg-black/[0.04] border border-border shrink-0 transition-colors cursor-pointer"
+              title="上传图片或文件 (支持 JPG/PNG/PDF/DOCX 等，最大 5MB)"
               aria-label="上传图片或文件"
             >
-              {uploading ? <ImageIcon className="w-4 h-4 animate-pulse" /> : <Paperclip className="w-4 h-4" />}
+              {uploading ? <ImageIcon className="w-4 h-4 animate-pulse text-primary" /> : <Paperclip className="w-4 h-4 text-zinc-600" />}
             </button>
-            <textarea
+            <input
+              type="text"
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  sendText();
-                }
-              }}
-              rows={2}
               maxLength={2000}
-              className="app-input min-h-[48px] min-w-0 max-h-32 flex-1 resize-y rounded-2xl px-3 sm:px-4 py-3"
-              placeholder="输入消息..."
+              className="app-input h-11 min-w-0 flex-1 rounded-xl px-4 text-sm leading-normal focus:ring-2 focus:ring-primary/20"
+              placeholder={chatMode === 'public' ? "输入消息... (按 Enter 发送)" : "向管理员发送私信... (按 Enter 发送)"}
             />
-            <button type="submit" disabled={!content.trim() || sending} className="btn-primary !px-4 !py-3 shrink-0 !bg-[#4c9eeb] hover:!bg-[#3a82d8]" title="发送" aria-label="发送消息">
+            <button
+              type="submit"
+              disabled={!content.trim() || sending}
+              className="btn-primary h-11 !px-5 shrink-0 rounded-xl shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+              title="发送"
+              aria-label="发送消息"
+            >
               <Send className="w-4 h-4" />
-              <span className="hidden sm:inline">{sending ? '发送中' : '发送'}</span>
+              <span className="hidden sm:inline font-medium text-sm">{sending ? '发送中' : '发送'}</span>
             </button>
           </div>
         </form>
@@ -431,7 +660,17 @@ export const ChatView: React.FC<ViewProps> = ({ navigate }) => {
   );
 };
 
-function MessageItem({ message, mine, onRecall }: { message: ChatMessage; mine: boolean; onRecall: () => void }) {
+function MessageItem({
+  message,
+  mine,
+  isAdmin,
+  onRecall,
+}: {
+  message: ChatMessage;
+  mine: boolean;
+  isAdmin: boolean;
+  onRecall: () => void;
+}) {
   const [cardOpen, setCardOpen] = useState(false);
 
   if (message.message_type === 'system') {
@@ -446,7 +685,7 @@ function MessageItem({ message, mine, onRecall }: { message: ChatMessage; mine: 
 
   const name = message.user_name || `用户 ${message.user_id}`;
   const avatarText = name.slice(0, 1).toUpperCase();
-  const canRecall = mine && Date.now() - new Date(message.created_at).getTime() <= recallWindowMs;
+  const canRecall = isAdmin || (mine && Date.now() - new Date(message.created_at).getTime() <= recallWindowMs);
 
   return (
     <div className={`flex gap-3 ${mine ? 'justify-end' : 'justify-start'}`}>
@@ -485,10 +724,16 @@ function MessageItem({ message, mine, onRecall }: { message: ChatMessage; mine: 
         </div>
       )}
 
-      <div className={`max-w-[78%] space-y-1 ${mine ? 'items-end text-right' : ''}`}>
-        <div className={`flex items-center gap-2 text-[11px] text-text-muted ${mine ? 'justify-end' : ''}`}>
+      <div className={`flex flex-col max-w-[78%] ${mine ? 'items-end' : 'items-start'}`}>
+        <div className={`flex items-center gap-2 text-[11px] text-text-muted mb-1 px-1 ${mine ? 'justify-end' : ''}`}>
           {canRecall && (
-            <button onClick={onRecall} className="inline-flex items-center gap-1 hover:text-accent" title="两分钟内可撤回">
+            <button
+              onClick={onRecall}
+              className={`inline-flex items-center gap-1 cursor-pointer transition-colors ${
+                isAdmin && !mine ? 'text-rose-500 hover:text-rose-600 font-medium' : 'hover:text-accent'
+              }`}
+              title={isAdmin && !mine ? '管理员撤回此消息' : '两分钟内可撤回'}
+            >
               <RotateCcw className="h-3 w-3" />
               撤回
             </button>
@@ -499,12 +744,12 @@ function MessageItem({ message, mine, onRecall }: { message: ChatMessage; mine: 
             {formatTime(message.created_at)}
           </span>
         </div>
-        <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
+        <div className={`w-fit max-w-full rounded-2xl px-4 py-2.5 text-xs sm:text-sm leading-relaxed shadow-sm break-words whitespace-pre-wrap ${
           mine
             ? 'bg-[#4c9eeb] text-white rounded-tr-md selection:bg-white/30 selection:text-white'
             : 'bg-white border border-border text-charcoal rounded-tl-md selection:bg-accent/10 selection:text-charcoal'
         }`}>
-          {message.message_type === 'text' && <div className="whitespace-pre-wrap break-words">{message.content}</div>}
+          {message.message_type === 'text' && <div>{message.content}</div>}
           {message.message_type === 'image' && (
             <ChatFileImage message={message} mine={mine} />
           )}
@@ -513,15 +758,25 @@ function MessageItem({ message, mine, onRecall }: { message: ChatMessage; mine: 
           )}
         </div>
       </div>
+
+      {mine && (
+        <div className="relative mt-5 shrink-0">
+          <div className="h-9 w-9 rounded-full overflow-hidden border border-border shadow-sm">
+            {message.user_avatar ? (
+              <img src={assetUrl(message.user_avatar)} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <div className="h-full w-full bg-pastel-blue flex items-center justify-center text-pastel-blue-text text-xs font-bold">
+                {avatarText}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-/**
- * 聊天图片：/uploads/chat 已挂 JWT 静态路由，<img src> 无法带 Authorization 头，
- * 改为认证 fetch + blob URL 展示。
- */
-function ChatFileImage({ message, mine }: { message: ChatMessage; mine: boolean }) {
+function ChatFileImage({ message, mine }: { message: { file_url?: string; file_name?: string }; mine: boolean }) {
   const [src, setSrc] = useState('');
   const objectUrlRef = useRef('');
 
@@ -540,7 +795,6 @@ function ChatFileImage({ message, mine }: { message: ChatMessage; mine: boolean 
     };
   }, [message.file_url]);
 
-  // 组件卸载时释放 blob URL
   useEffect(() => {
     return () => {
       if (objectUrlRef.current) {
@@ -572,10 +826,7 @@ function ChatFileImage({ message, mine }: { message: ChatMessage; mine: boolean 
   );
 }
 
-/**
- * 聊天文件下载：同样走认证 fetch + blob 下载。
- */
-function ChatFileDownload({ message, mine }: { message: ChatMessage; mine: boolean }) {
+function ChatFileDownload({ message, mine }: { message: { file_url?: string; file_name?: string; file_size?: number }; mine: boolean }) {
   const { showToast } = useToast();
   const [downloading, setDownloading] = useState(false);
 

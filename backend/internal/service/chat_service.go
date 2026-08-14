@@ -121,16 +121,19 @@ func (s *ChatService) Join(userID uint) (int64, error) {
 	}
 
 	if shouldAnnounce {
-		msg := model.ChatMessage{
-			UserID:      userID,
-			MessageType: ChatMessageTypeSystem,
-			Content:     fmt.Sprintf("%s用户加入聊天室", displayName(user)),
+		announceKey := fmt.Sprintf("chat:join:announce:%d", userID)
+		if s.cache.SetNX(context.Background(), announceKey, "1", 5*time.Minute) {
+			msg := model.ChatMessage{
+				UserID:      userID,
+				MessageType: ChatMessageTypeSystem,
+				Content:     fmt.Sprintf("%s 加入了聊天室", displayName(user)),
+			}
+			if err := s.db.Create(&msg).Error; err != nil {
+				return 0, err
+			}
+			s.cacheMessage(msg)
+			s.emit(ws.TypeMessage, s.fillUserInfo([]model.ChatMessage{msg})[0])
 		}
-		if err := s.db.Create(&msg).Error; err != nil {
-			return 0, err
-		}
-		s.cacheMessage(msg)
-		s.emit(ws.TypeMessage, s.fillUserInfo([]model.ChatMessage{msg})[0])
 	}
 	s.markOnline(userID, now)
 
@@ -283,12 +286,20 @@ func (s *ChatService) DeleteMessage(userID uint, messageID uint) error {
 	if err := s.db.First(&msg, messageID).Error; err != nil {
 		return errors.New("消息不存在或已被删除")
 	}
-	if msg.UserID != userID {
-		return errors.New("只能撤回自己的消息")
+
+	var user model.User
+	s.db.First(&user, userID)
+	isAdmin := user.Role == "admin" || user.Role == "super_admin" || user.Username == "admin"
+
+	if !isAdmin {
+		if msg.UserID != userID {
+			return errors.New("只能撤回自己的消息")
+		}
+		if time.Since(msg.CreatedAt) > chatRecallWindow {
+			return errors.New("超过 2 分钟，消息无法撤回")
+		}
 	}
-	if time.Since(msg.CreatedAt) > chatRecallWindow {
-		return errors.New("超过 2 分钟，消息无法撤回")
-	}
+
 	if err := s.db.Delete(&model.ChatMessage{}, messageID).Error; err != nil {
 		return errors.New("撤回失败")
 	}

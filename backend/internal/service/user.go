@@ -114,40 +114,96 @@ func (s *UserService) Register(username, password, nickname, email, realName, cl
 	return &user, nil
 }
 
-func (s *UserService) Login(username, password string) (string, *model.User, error) {
+func (s *UserService) Login(username, password string) (string, string, bool, *model.User, error) {
 	if username == "" || password == "" {
-		return "", nil, errors.New("用户名或密码不能为空")
+		return "", "", false, nil, errors.New("用户名或密码不能为空")
 	}
 
 	user := model.User{}
 	err := s.db.Where("username = ?", username).First(&user).Error
 	if err != nil {
-		return "", nil, errors.New("用户名或密码错误")
+		// 用户表未找到，尝试在 admins 表中查找
+		var admin model.Admin
+		if errAdmin := s.db.Where("username = ?", username).First(&admin).Error; errAdmin == nil {
+			if admin.Status == 0 {
+				return "", "", false, nil, errors.New("账号已被禁用")
+			}
+			if err := bcrypt.CompareHashAndPassword([]byte(admin.PasswordHash), []byte(password)); err != nil {
+				return "", "", false, nil, errors.New("用户名或密码错误")
+			}
+			// 自动创建或同步对应的 user 记录
+			user = model.User{
+				Username:     admin.Username,
+				PasswordHash: admin.PasswordHash,
+				Nickname:     admin.Nickname,
+				Role:         "admin",
+				Status:       1,
+				RealName:     "管理员",
+				Department:   "管理层",
+			}
+			s.db.Create(&user)
+		} else {
+			return "", "", false, nil, errors.New("用户名或密码错误")
+		}
+	} else {
+		if user.Status == 0 {
+			return "", "", false, nil, errors.New("账号已被禁用")
+		}
+		if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+			// 密码不匹配时，尝试校验 admins 表中的密码（若为管理员）
+			var admin model.Admin
+			if errAdmin := s.db.Where("username = ?", username).First(&admin).Error; errAdmin == nil {
+				if bcrypt.CompareHashAndPassword([]byte(admin.PasswordHash), []byte(password)) == nil {
+					user.PasswordHash = admin.PasswordHash
+					user.Role = "admin"
+					s.db.Model(&user).Updates(map[string]interface{}{
+						"password_hash": admin.PasswordHash,
+						"role":          "admin",
+					})
+				} else {
+					return "", "", false, nil, errors.New("用户名或密码错误")
+				}
+			} else {
+				return "", "", false, nil, errors.New("用户名或密码错误")
+			}
+		}
 	}
 
-	if user.Status == 0 {
-		return "", nil, errors.New("账号已被禁用")
+	isAdmin := user.Role == "admin" || user.Role == "super_admin" || user.Username == "admin"
+	if !isAdmin {
+		var adminCount int64
+		s.db.Model(&model.Admin{}).Where("username = ?", user.Username).Count(&adminCount)
+		if adminCount > 0 {
+			isAdmin = true
+			user.Role = "admin"
+			s.db.Model(&user).Update("role", "admin")
+		}
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-		return "", nil, errors.New("用户名或密码错误")
-	}
-
-	token, err := utils.GenerateToken(user.ID, user.Username, user.Role)
+	userToken, err := utils.GenerateToken(user.ID, user.Username, user.Role)
 	if err != nil {
-		return "", nil, errors.New("生成Token失败")
+		return "", "", false, nil, errors.New("生成Token失败")
 	}
 
 	ttl := time.Duration(config.GlobalConfig.JWT.ExpireHours) * time.Hour
-	redisKey := middleware.UserTokenPrefix + token
+	redisKey := middleware.UserTokenPrefix + userToken
 	if err := s.rdb.Set(context.Background(), redisKey, user.ID, ttl).Err(); err != nil {
-		return "", nil, errors.New("redis保存token失败")
+		return "", "", false, nil, errors.New("redis保存token失败")
+	}
+
+	var adminToken string
+	if isAdmin {
+		adminToken, err = utils.GenerateToken(user.ID, user.Username, "admin")
+		if err == nil {
+			adminRedisKey := middleware.AdminTokenPrefix + adminToken
+			_ = s.rdb.Set(context.Background(), adminRedisKey, user.ID, 24*time.Hour).Err()
+		}
 	}
 
 	now := time.Now()
 	s.db.Model(&user).Update("last_login_at", &now)
 
-	return token, &user, nil
+	return userToken, adminToken, isAdmin, &user, nil
 }
 
 func (s *UserService) ChangePassword(userID uint, oldPassword, newPassword string) error {

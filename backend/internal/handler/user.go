@@ -70,13 +70,15 @@ func (h *UserHandler) Login(c *gin.Context) {
 		response.Fail(c, 400, "请输入用户名和密码")
 		return
 	}
-	token, user, err := h.svc.Login(req.Username, req.Password)
+	userToken, adminToken, isAdmin, user, err := h.svc.Login(req.Username, req.Password)
 	if err != nil {
 		response.Fail(c, 400, err.Error())
 		return
 	}
 	response.Success(c, gin.H{
-		"token": token,
+		"token":       userToken,
+		"admin_token": adminToken,
+		"is_admin":    isAdmin,
 		"user": gin.H{
 			"id":         user.ID,
 			"username":   user.Username,

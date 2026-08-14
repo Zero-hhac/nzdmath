@@ -234,7 +234,7 @@ func (s *ResourceService) RecordDownload(userID uint, resourceID uint, ip, userA
 	return s.db.Create(&log).Error
 }
 
-func (s *ResourceService) ListMyDownloads(userID uint, page, pageSize int) ([]model.DownloadLog, int64, error) {
+func (s *ResourceService) ListMyDownloads(userID uint, page, pageSize int) ([]dto.MyDownloadItem, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -253,5 +253,38 @@ func (s *ResourceService) ListMyDownloads(userID uint, page, pageSize int) ([]mo
 		Find(&logs).Error; err != nil {
 		return nil, 0, err
 	}
-	return logs, total, nil
+	if len(logs) == 0 {
+		return []dto.MyDownloadItem{}, total, nil
+	}
+
+	resIDs := make([]uint, 0, len(logs))
+	for _, l := range logs {
+		resIDs = append(resIDs, l.ResourceID)
+	}
+	var resources []model.Resource
+	s.db.Select("id, title, file_name, file_size, cover_url").Where("id IN ?", resIDs).Find(&resources)
+	rm := make(map[uint]model.Resource, len(resources))
+	for _, r := range resources {
+		rm[r.ID] = r
+	}
+
+	result := make([]dto.MyDownloadItem, 0, len(logs))
+	for _, l := range logs {
+		item := dto.MyDownloadItem{
+			ID:         l.ID,
+			ResourceID: l.ResourceID,
+			IP:         l.IP,
+			CreatedAt:  l.CreatedAt,
+		}
+		if r, ok := rm[l.ResourceID]; ok {
+			item.ResourceTitle = r.Title
+			item.FileName = r.FileName
+			item.FileSize = r.FileSize
+			item.CoverURL = r.CoverURL
+		} else {
+			item.ResourceTitle = fmt.Sprintf("资源 #%d（已下线）", l.ResourceID)
+		}
+		result = append(result, item)
+	}
+	return result, total, nil
 }

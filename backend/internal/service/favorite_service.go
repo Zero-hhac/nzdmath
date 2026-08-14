@@ -29,10 +29,36 @@ var validFavoriteTypes = map[string]bool{
 	"event": true, "news": true, "resource": true, "showcase": true,
 }
 
+func (s *FavoriteService) validateTarget(targetType string, targetID uint) error {
+	var count int64
+	var err error
+	switch targetType {
+	case "event":
+		err = s.db.Model(&model.Event{}).Where("id = ? AND status = 1", targetID).Count(&count).Error
+	case "news":
+		err = s.db.Model(&model.News{}).Where("id = ? AND status = 1", targetID).Count(&count).Error
+	case "resource":
+		err = s.db.Model(&model.Resource{}).Where("id = ? AND status = 1", targetID).Count(&count).Error
+	case "showcase":
+		err = s.db.Model(&model.Showcase{}).Where("id = ? AND status = 1", targetID).Count(&count).Error
+	default:
+		return ErrFavoriteInvalidType
+	}
+	if err != nil || count == 0 {
+		return errors.New("收藏的内容不存在或已下线")
+	}
+	return nil
+}
+
 func (s *FavoriteService) AddFavorite(userID uint, targetID uint, targetType string) error {
 	if !validFavoriteTypes[targetType] {
 		return ErrFavoriteInvalidType
 	}
+	// 校验目标主体存在性与公开状态
+	if err := s.validateTarget(targetType, targetID); err != nil {
+		return err
+	}
+
 	var existing model.Favorite
 	err := s.db.Where("user_id = ? AND target_type = ? AND target_id = ?", userID, targetType, targetID).First(&existing).Error
 	if err == nil {

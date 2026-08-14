@@ -89,13 +89,49 @@ func (s *EventRegistrationService) Register(eventID, userID uint) error {
 }
 
 // Cancel 取消报名（硬删记录，之后可重新报名）。
+// 状态机约束：已签到、已开始或已过期的活动无法取消报名。
+// 事务内同时写入"取消报名"通知，并实时推送红点。
 func (s *EventRegistrationService) Cancel(eventID, userID uint) error {
-	res := s.db.Where("event_id = ? AND user_id = ?", eventID, userID).Delete(&model.EventRegistration{})
-	if res.Error != nil {
-		return res.Error
-	}
-	if res.RowsAffected == 0 {
+	var reg model.EventRegistration
+	if err := s.db.Where("event_id = ? AND user_id = ?", eventID, userID).First(&reg).Error; err != nil {
 		return errors.New("未报名该活动")
+	}
+	if reg.Status == model.RegStatusAttended {
+		return errors.New("已签到的活动无法取消报名")
+	}
+
+	var event model.Event
+	if err := s.db.First(&event, eventID).Error; err != nil {
+		return errors.New("活动不存在")
+	}
+	if event.IsExpired {
+		return errors.New("活动已结束，无法取消报名")
+	}
+	if time.Now().After(event.StartTime) {
+		return errors.New("活动已开始，无法取消报名")
+	}
+
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Delete(&reg).Error; err != nil {
+			return errors.New("取消报名失败")
+		}
+		notice := model.Notification{
+			UserID: userID,
+			Title:  "取消报名通知",
+			Content: fmt.Sprintf("你已成功取消活动「%s」的报名。\n如需重新参加，请在活动开始前重新报名。", event.Title),
+			Type:   "activity",
+		}
+		if err := tx.Create(&notice).Error; err != nil {
+			return errors.New("生成通知失败")
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	if s.notifier != nil {
+		s.notifier([]uint{userID})
 	}
 	return nil
 }
@@ -194,29 +230,88 @@ func (s *EventRegistrationService) ListByEvent(eventID uint) ([]dto.EventRegistr
 
 // MarkAttended 签到
 func (s *EventRegistrationService) MarkAttended(eventID, userID uint) error {
-	now := time.Now()
-	res := s.db.Model(&model.EventRegistration{}).
-		Where("event_id = ? AND user_id = ?", eventID, userID).
-		Updates(map[string]interface{}{"status": model.RegStatusAttended, "checked_in_at": now})
-	if res.Error != nil {
-		return res.Error
+	var reg model.EventRegistration
+	if err := s.db.Where("event_id = ? AND user_id = ?", eventID, userID).First(&reg).Error; err != nil {
+		return errors.New("该用户未报名该活动")
 	}
-	if res.RowsAffected == 0 {
-		return errors.New("该用户未报名")
+
+	var event model.Event
+	if err := s.db.First(&event, eventID).Error; err != nil {
+		return errors.New("活动不存在")
+	}
+
+	now := time.Now()
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		res := tx.Model(&model.EventRegistration{}).
+			Where("event_id = ? AND user_id = ?", eventID, userID).
+			Updates(map[string]interface{}{"status": model.RegStatusAttended, "checked_in_at": now})
+		if res.Error != nil {
+			return res.Error
+		}
+
+		notice := model.Notification{
+			UserID: userID,
+			Title:  "签到成功",
+			Content: fmt.Sprintf("你参加的活动「%s」已完成现场签到。\n签到时间：%s\n感谢你的积极参与！",
+				event.Title,
+				now.Format("2006-01-02 15:04:05"),
+			),
+			Type: "activity",
+		}
+		if err := tx.Create(&notice).Error; err != nil {
+			return errors.New("生成通知失败")
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	if s.notifier != nil {
+		s.notifier([]uint{userID})
 	}
 	return nil
 }
 
 // CancelCheckin 取消签到（回到已报名状态）
 func (s *EventRegistrationService) CancelCheckin(eventID, userID uint) error {
-	res := s.db.Model(&model.EventRegistration{}).
-		Where("event_id = ? AND user_id = ?", eventID, userID).
-		Updates(map[string]interface{}{"status": model.RegStatusRegistered, "checked_in_at": nil})
-	if res.Error != nil {
-		return res.Error
+	var reg model.EventRegistration
+	if err := s.db.Where("event_id = ? AND user_id = ?", eventID, userID).First(&reg).Error; err != nil {
+		return errors.New("该用户未报名该活动")
 	}
-	if res.RowsAffected == 0 {
-		return errors.New("该用户未报名")
+
+	var event model.Event
+	if err := s.db.First(&event, eventID).Error; err != nil {
+		return errors.New("活动不存在")
+	}
+
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		res := tx.Model(&model.EventRegistration{}).
+			Where("event_id = ? AND user_id = ?", eventID, userID).
+			Updates(map[string]interface{}{"status": model.RegStatusRegistered, "checked_in_at": nil})
+		if res.Error != nil {
+			return res.Error
+		}
+
+		notice := model.Notification{
+			UserID: userID,
+			Title:  "签到状态变更",
+			Content: fmt.Sprintf("你参加的活动「%s」签到状态已被管理员撤销，当前恢复为「已报名」状态。",
+				event.Title,
+			),
+			Type: "activity",
+		}
+		if err := tx.Create(&notice).Error; err != nil {
+			return errors.New("生成通知失败")
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	if s.notifier != nil {
+		s.notifier([]uint{userID})
 	}
 	return nil
 }
