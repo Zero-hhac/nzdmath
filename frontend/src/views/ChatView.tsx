@@ -204,14 +204,16 @@ export const ChatView: React.FC<ViewProps> = ({ navigate }) => {
     if (!joined) return;
 
     if (chatMode === 'public') {
+      // 必须先完成 join（后端登记在线状态），再拉取历史消息，
+      // 否则并发请求会触发后端 touchPresence 报"请先加入聊天室"。
       api.chatJoin()
         .then((res) => {
           if (typeof res.data?.online_count === 'number') {
             setOnlineCount(res.data.online_count);
           }
+          return loadHistory();
         })
         .catch(() => {});
-      loadHistory();
     } else {
       loadDirectMessages();
       const timer = setInterval(() => {
