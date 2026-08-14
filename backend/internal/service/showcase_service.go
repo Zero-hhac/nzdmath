@@ -41,6 +41,9 @@ func (s *ShowcaseService) ListShowcases(field, competition, keyword string, page
 	if pageSize <= 0 {
 		pageSize = 10
 	}
+	if pageSize > 50 {
+		pageSize = 50
+	}
 	offset := (page - 1) * pageSize
 
 	if err := query.Order("id desc").Offset(offset).Limit(pageSize).Find(&showcases).Error; err != nil {

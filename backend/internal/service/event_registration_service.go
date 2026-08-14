@@ -13,6 +13,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type EventRegistrationService struct {
@@ -31,22 +32,10 @@ func (s *EventRegistrationService) SetNotifier(fn func(userIDs []uint)) {
 }
 
 // Register 报名活动：活动须已发布且未开始；容量满时拒绝。
+// #4：活动记录读取移入事务并对活动行加排他锁（SELECT FOR UPDATE），
+// 名额、时间、过期判断全部基于锁后数据，配合同活动同人唯一索引兜底防超卖。
 // 报名成功后在同一事务内自动写入一条"报名成功"系统通知（顶栏红点提示）。
 func (s *EventRegistrationService) Register(eventID, userID uint) error {
-	var event model.Event
-	if err := s.db.Where("id = ? AND status = ?", eventID, 1).First(&event).Error; err != nil {
-		return errors.New("活动不存在或未发布")
-	}
-	if event.IsExpired {
-		return errors.New("活动已过期，无法报名")
-	}
-	if time.Now().After(event.StartTime) {
-		return errors.New("活动已开始，无法报名")
-	}
-	location := event.Location
-	if location == "" {
-		location = "待定"
-	}
 	reg := model.EventRegistration{
 		EventID:      eventID,
 		UserID:       userID,
@@ -54,6 +43,26 @@ func (s *EventRegistrationService) Register(eventID, userID uint) error {
 		RegisteredAt: time.Now(),
 	}
 	err := s.db.Transaction(func(tx *gorm.DB) error {
+		// 锁行读取活动：并发报名时同一活动串行化，杜绝超卖
+		var event model.Event
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ? AND status = ?", eventID, 1).
+			First(&event).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("活动不存在或未发布")
+			}
+			return errors.New("系统繁忙，请稍后再试")
+		}
+		if event.IsExpired {
+			return errors.New("活动已过期，无法报名")
+		}
+		if time.Now().After(event.StartTime) {
+			return errors.New("活动已开始，无法报名")
+		}
+		location := event.Location
+		if location == "" {
+			location = "待定"
+		}
 		if event.Capacity > 0 {
 			var count int64
 			if err := tx.Model(&model.EventRegistration{}).Where("event_id = ?", eventID).Count(&count).Error; err != nil {
@@ -116,10 +125,10 @@ func (s *EventRegistrationService) Cancel(eventID, userID uint) error {
 			return errors.New("取消报名失败")
 		}
 		notice := model.Notification{
-			UserID: userID,
-			Title:  "取消报名通知",
+			UserID:  userID,
+			Title:   "取消报名通知",
 			Content: fmt.Sprintf("你已成功取消活动「%s」的报名。\n如需重新参加，请在活动开始前重新报名。", event.Title),
-			Type:   "activity",
+			Type:    "activity",
 		}
 		if err := tx.Create(&notice).Error; err != nil {
 			return errors.New("生成通知失败")

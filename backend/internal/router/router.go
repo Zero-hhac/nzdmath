@@ -49,10 +49,12 @@ func NewEngine() *gin.Engine {
 	// 1) 避免把 /uploads/chat 聊天室文件一并公开；
 	// 2) gin 的路由树不允许 /uploads/chat/*filepath 与 /uploads/*filepath 同时注册
 	//    （会启动 panic），所以“影子路由覆盖”方案不可用，改为按目录白名单挂载。
-	publicDirs := []string{"avatars", "covers", "h5_unified_light", "resources"}
+	publicDirs := []string{"avatars", "covers", "h5_unified_light"}
 	for _, dir := range publicDirs {
 		r.Static("/uploads/"+dir, filepath.Join(uploadBase, dir))
 	}
+	// 资源目录是用户上传出口：HTML/HTM/SVG 一律强制下载，不再同源内联执行（#9）
+	r.GET("/uploads/resources/*filepath", staticWithDownloadOnlyForHTML("/uploads/resources", filepath.Join(uploadBase, "resources")))
 
 	db := config.ConnectMysql()
 	rdb := config.InitRedis()
@@ -64,9 +66,9 @@ func NewEngine() *gin.Engine {
 	chatStatic.Use(middleware.JWTAuthMiddleware(rdb))
 	chatStatic.Static("", filepath.Join(uploadBase, "chat"))
 
-	directStatic := r.Group("/uploads/direct")
-	directStatic.Use(middleware.JWTAuthMiddleware(rdb))
-	directStatic.Static("", filepath.Join(uploadBase, "direct"))
+	// 私聊附件不再静态挂载：改为鉴权 + 会话归属校验接口（仅会话双方与管理员可下载）
+	directFileHandler := handler.NewDirectFileHandler(db, rdb)
+	r.GET("/uploads/direct/*filepath", directFileHandler.DownloadFile)
 
 	// 聊天室 WebSocket Hub（单实例内存版；多实例时在此接 Redis Pub/Sub）
 	hub := ws.NewHub()
@@ -124,6 +126,11 @@ func NewEngine() *gin.Engine {
 	if err := adminInitSvc.EnsureDefaultAdmin(); err != nil {
 		slog.Error("创建默认管理员失败，服务终止", "err", err)
 		panic(err)
+	}
+	// #1 数据清洗：修复前被抢注的管理员同名会员记录，同步密码哈希与角色
+	userInitSvc := service.NewUserService(db, rdb)
+	if err := userInitSvc.CleanupAdminShadowAccounts(); err != nil {
+		slog.Warn("管理员同名会员记录清洗失败", "err", err)
 	}
 
 	// 每日指标归档常驻任务：不依赖管理员访问后台，防止 Redis 日指标 key 过期导致数据丢失
@@ -213,7 +220,8 @@ func registerPublicRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, c *cach
 
 		public.GET("/resources", resourceHandler.List)
 		public.GET("/resources/:id", resourceHandler.Detail)
-		public.GET("/resources/download/:id", resourceHandler.Download)
+		downloadLimit := middleware.RateLimitMiddleware(rdb, 30, time.Minute)
+		public.GET("/resources/download/:id", downloadLimit, resourceHandler.Download)
 
 		public.GET("/showcases", showcaseHandler.List)
 		public.GET("/showcases/:id", showcaseHandler.Detail)
@@ -308,7 +316,7 @@ func registerAdminRoutes(r *gin.Engine, db *gorm.DB, rdb *redis.Client, c *cache
 	adminResourceService := service.NewAdminResourceService(db)
 	adminShowcaseService := service.NewAdminShowcaseService(db)
 	commentService := service.NewCommentService(db)
-	adminUserService := service.NewAdminUserService(db)
+	adminUserService := service.NewAdminUserService(db, rdb)
 	homepageService := service.NewHomepageService(db, c)
 	resourceService := service.NewResourceService(db)
 	chatService := service.NewChatService(db, c)

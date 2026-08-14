@@ -92,13 +92,8 @@ func (s *DirectMessageService) SendUserMessage(userID uint, content string) (*dt
 	items := s.enrichMessages([]model.DirectMessage{*msg})
 	res := &items[0]
 
-	// 广播实时推送
-	if s.hub != nil {
-		s.hub.BroadcastMessage(map[string]interface{}{
-			"channel": "direct",
-			"message": res,
-		})
-	}
+	// 实时推送：只投递到发送方与管理员会话侧，绝不全员广播（私信机密性）
+	s.pushDirect(append(s.adminUserIDs(), userID), res)
 
 	return res, nil
 }
@@ -115,13 +110,15 @@ func (s *DirectMessageService) SendUserFile(userID uint, file *multipart.FileHea
 	originalName := filepath.Base(file.Filename)
 	ext := strings.ToLower(filepath.Ext(originalName))
 	mime := file.Header.Get("Content-Type")
-	if strings.HasPrefix(strings.ToLower(mime), "video/") {
+	if chatVideoExts[ext] || strings.HasPrefix(strings.ToLower(mime), "video/") {
 		return nil, errors.New("不支持上传视频文件")
+	}
+	if !allowedChatExt(ext) {
+		return nil, errors.New("不支持的文件格式")
 	}
 
 	msgType := "file"
-	imgExts := map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true}
-	if imgExts[ext] {
+	if chatImageExts[ext] {
 		msgType = "image"
 	}
 
@@ -145,6 +142,13 @@ func (s *DirectMessageService) SendUserFile(userID uint, file *multipart.FileHea
 	}
 	defer src.Close()
 
+	if err := validateUploadContent(ext, src); err != nil {
+		return nil, err
+	}
+	if _, err := src.Seek(0, io.SeekStart); err != nil {
+		return nil, errors.New("读取文件失败")
+	}
+
 	dst, err := os.Create(savePath)
 	if err != nil {
 		return nil, errors.New("保存文件失败")
@@ -152,6 +156,7 @@ func (s *DirectMessageService) SendUserFile(userID uint, file *multipart.FileHea
 	defer dst.Close()
 
 	if _, err := io.Copy(dst, src); err != nil {
+		os.Remove(savePath)
 		return nil, errors.New("写入文件失败")
 	}
 
@@ -170,18 +175,14 @@ func (s *DirectMessageService) SendUserFile(userID uint, file *multipart.FileHea
 		IsRead:      false,
 	}
 	if err := s.db.Create(msg).Error; err != nil {
+		os.Remove(savePath)
 		return nil, errors.New("发送文件失败")
 	}
 
 	items := s.enrichMessages([]model.DirectMessage{*msg})
 	res := &items[0]
 
-	if s.hub != nil {
-		s.hub.BroadcastMessage(map[string]interface{}{
-			"channel": "direct",
-			"message": res,
-		})
-	}
+	s.pushDirect(append(s.adminUserIDs(), userID), res)
 
 	return res, nil
 }
@@ -330,12 +331,8 @@ func (s *DirectMessageService) SendAdminMessage(adminID uint, targetUserID uint,
 	items := s.enrichMessages([]model.DirectMessage{*msg})
 	res := &items[0]
 
-	if s.hub != nil {
-		s.hub.BroadcastMessage(map[string]interface{}{
-			"channel": "direct",
-			"message": res,
-		})
-	}
+	// 定向推送：仅管理员发送方与目标会员可见
+	s.pushDirect([]uint{adminID, targetUserID}, res)
 
 	return res, nil
 }
@@ -352,13 +349,15 @@ func (s *DirectMessageService) SendAdminFile(adminID uint, targetUserID uint, fi
 	originalName := filepath.Base(file.Filename)
 	ext := strings.ToLower(filepath.Ext(originalName))
 	mime := file.Header.Get("Content-Type")
-	if strings.HasPrefix(strings.ToLower(mime), "video/") {
+	if chatVideoExts[ext] || strings.HasPrefix(strings.ToLower(mime), "video/") {
 		return nil, errors.New("不支持上传视频文件")
+	}
+	if !allowedChatExt(ext) {
+		return nil, errors.New("不支持的文件格式")
 	}
 
 	msgType := "file"
-	imgExts := map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true}
-	if imgExts[ext] {
+	if chatImageExts[ext] {
 		msgType = "image"
 	}
 
@@ -382,6 +381,13 @@ func (s *DirectMessageService) SendAdminFile(adminID uint, targetUserID uint, fi
 	}
 	defer src.Close()
 
+	if err := validateUploadContent(ext, src); err != nil {
+		return nil, err
+	}
+	if _, err := src.Seek(0, io.SeekStart); err != nil {
+		return nil, errors.New("读取文件失败")
+	}
+
 	dst, err := os.Create(savePath)
 	if err != nil {
 		return nil, errors.New("保存文件失败")
@@ -389,6 +395,7 @@ func (s *DirectMessageService) SendAdminFile(adminID uint, targetUserID uint, fi
 	defer dst.Close()
 
 	if _, err := io.Copy(dst, src); err != nil {
+		os.Remove(savePath)
 		return nil, errors.New("写入文件失败")
 	}
 
@@ -408,18 +415,14 @@ func (s *DirectMessageService) SendAdminFile(adminID uint, targetUserID uint, fi
 		IsRead:      false,
 	}
 	if err := s.db.Create(msg).Error; err != nil {
+		os.Remove(savePath)
 		return nil, errors.New("发送文件失败")
 	}
 
 	items := s.enrichMessages([]model.DirectMessage{*msg})
 	res := &items[0]
 
-	if s.hub != nil {
-		s.hub.BroadcastMessage(map[string]interface{}{
-			"channel": "direct",
-			"message": res,
-		})
-	}
+	s.pushDirect([]uint{adminID, targetUserID}, res)
 
 	return res, nil
 }
@@ -429,6 +432,31 @@ func (s *DirectMessageService) MarkAdminRead(targetUserID uint) error {
 	return s.db.Model(&model.DirectMessage{}).
 		Where("user_id = ? AND sender_type = 'user' AND is_read = false", targetUserID).
 		Update("is_read", true).Error
+}
+
+// pushDirect 向指定用户集合定向推送私信帧（channel=direct 标记保持不变，前端无需改动）。
+// 私信只允许会话双方（及管理员侧）收到，禁止全员广播。
+func (s *DirectMessageService) pushDirect(userIDs []uint, res *dto.DirectMessageItem) {
+	if s.hub == nil || len(userIDs) == 0 {
+		return
+	}
+	s.hub.SendToUsers(userIDs, map[string]interface{}{
+		"channel": "direct",
+		"message": res,
+	})
+}
+
+// adminUserIDs 返回当前管理员账号对应的会员表用户 ID（管理员登录后会自动同步会员记录）。
+func (s *DirectMessageService) adminUserIDs() []uint {
+	var users []model.User
+	if err := s.db.Select("id").Where("role IN ?", []string{"admin", "super_admin"}).Find(&users).Error; err != nil {
+		return nil
+	}
+	ids := make([]uint, 0, len(users))
+	for _, u := range users {
+		ids = append(ids, u.ID)
+	}
+	return ids
 }
 
 // GetTotalUnreadForAdmin 获取管理员全局未读私信数

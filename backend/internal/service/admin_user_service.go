@@ -7,17 +7,29 @@ import (
 	"math-top/internal/utils"
 	"strings"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/xuri/excelize/v2"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 type AdminUserService struct {
-	db *gorm.DB
+	db  *gorm.DB
+	rdb *redis.Client
 }
 
-func NewAdminUserService(db *gorm.DB) *AdminUserService {
-	return &AdminUserService{db: db}
+func NewAdminUserService(db *gorm.DB, rdb *redis.Client) *AdminUserService {
+	return &AdminUserService{db: db, rdb: rdb}
+}
+
+// assertNotAdminRow 单用户管理接口的越权防护（#6）：
+// 会员表中角色为管理员/超级管理员或用户名为 admin 的行，一律拒绝普通管理员操作，
+// 与批量接口（role NOT IN）的防护对齐，防止普通 admin 重置 super_admin 密码。
+func (s *AdminUserService) assertNotAdminRow(user model.User) error {
+	if user.Role == consts.RoleAdmin || user.Role == consts.RoleSuperAdmin || strings.EqualFold(user.Username, "admin") {
+		return errors.New("管理员账号请在管理员账号体系中自助管理")
+	}
+	return nil
 }
 
 func (s *AdminUserService) List(page, pageSize int, keyword string, status *int, department string, incomplete bool) ([]model.User, int64, error) {
@@ -58,12 +70,24 @@ func (s *AdminUserService) List(page, pageSize int, keyword string, status *int,
 }
 
 func (s *AdminUserService) SetStatus(id uint, status int) error {
+	var user model.User
+	if err := s.db.First(&user, id).Error; err != nil {
+		return errors.New("用户不存在")
+	}
+	// #6：管理员行不参与启停
+	if err := s.assertNotAdminRow(user); err != nil {
+		return err
+	}
 	res := s.db.Model(&model.User{}).Where("id = ?", id).Update("status", status)
 	if res.Error != nil {
 		return res.Error
 	}
 	if res.RowsAffected == 0 {
 		return errors.New("用户不存在")
+	}
+	// #5：封禁时立即吊销该用户全部会话
+	if status == consts.StatusDisabled {
+		RevokeTokensForUserID(s.rdb, s.db, id)
 	}
 	return nil
 }
@@ -77,6 +101,10 @@ func (s *AdminUserService) ResetPassword(id uint, newPassword string) error {
 	if err := s.db.First(&user, id).Error; err != nil {
 		return errors.New("用户不存在")
 	}
+	// #6：管理员行不参与重置密码
+	if err := s.assertNotAdminRow(user); err != nil {
+		return err
+	}
 	hashed, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return errors.New("密码加密失败")
@@ -85,13 +113,20 @@ func (s *AdminUserService) ResetPassword(id uint, newPassword string) error {
 	if res.Error != nil {
 		return res.Error
 	}
-	if user.Role == "admin" || user.Role == "super_admin" || user.Username == "admin" {
-		s.db.Model(&model.Admin{}).Where("username = ?", user.Username).Update("password_hash", string(hashed))
-	}
+	// #5：重置密码后吊销该用户全部会话
+	RevokeTokensForUserID(s.rdb, s.db, id)
 	return nil
 }
 
 func (s *AdminUserService) Delete(id uint) error {
+	var user model.User
+	if err := s.db.First(&user, id).Error; err != nil {
+		return errors.New("用户不存在")
+	}
+	// #6：管理员行不参与删除
+	if err := s.assertNotAdminRow(user); err != nil {
+		return err
+	}
 	res := s.db.Delete(&model.User{}, id)
 	if res.Error != nil {
 		return res.Error
@@ -99,6 +134,8 @@ func (s *AdminUserService) Delete(id uint) error {
 	if res.RowsAffected == 0 {
 		return errors.New("用户不存在")
 	}
+	// #5：删除用户后吊销其全部会话
+	RevokeTokensForUserID(s.rdb, s.db, id)
 	return nil
 }
 
@@ -112,6 +149,12 @@ func (s *AdminUserService) BatchSetStatus(ids []uint, status int) (int, error) {
 		Update("status", status)
 	if res.Error != nil {
 		return 0, res.Error
+	}
+	// #5：批量封禁同样吊销会话
+	if status == consts.StatusDisabled && res.RowsAffected > 0 {
+		for _, id := range ids {
+			RevokeTokensForUserID(s.rdb, s.db, id)
+		}
 	}
 	return int(res.RowsAffected), nil
 }
@@ -136,6 +179,12 @@ func (s *AdminUserService) BatchResetPassword(ids []uint, newPassword string) (i
 	if res.Error != nil {
 		return 0, res.Error
 	}
+	// #5：批量重置后吊销会话
+	if res.RowsAffected > 0 {
+		for _, id := range ids {
+			RevokeTokensForUserID(s.rdb, s.db, id)
+		}
+	}
 	return int(res.RowsAffected), nil
 }
 
@@ -156,6 +205,12 @@ func (s *AdminUserService) BatchDelete(ids []uint) (int, error) {
 	})
 	if err != nil {
 		return 0, err
+	}
+	// #5：删除后吊销会话
+	if affected > 0 {
+		for _, id := range ids {
+			RevokeTokensForUserID(s.rdb, s.db, id)
+		}
 	}
 	return int(affected), nil
 }

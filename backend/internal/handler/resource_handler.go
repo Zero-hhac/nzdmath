@@ -119,13 +119,13 @@ func (h *ResourceHandler) Download(c *gin.Context) {
 	c.File(resource.FilePath)
 }
 
+// resolveUserID 仅接受 Authorization 头的 Bearer token（#14：删除 query 传 token 兼容分支，
+// 防止 token 落入访问日志；前端已无使用点）。
 func (h *ResourceHandler) resolveUserID(c *gin.Context) uint {
-	token := ""
 	auth := c.GetHeader("Authorization")
+	token := ""
 	if strings.HasPrefix(auth, "Bearer ") {
 		token = strings.TrimPrefix(auth, "Bearer ")
-	} else if qToken := c.Query("token"); qToken != "" {
-		token = qToken
 	}
 	if token == "" {
 		return 0

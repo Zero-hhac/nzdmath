@@ -8,7 +8,6 @@ import (
 	"math-top/internal/dto"
 	"math-top/internal/model"
 	"mime/multipart"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -165,17 +164,17 @@ func (s *ResourceService) UploadFile(file *multipart.FileHeader, coverURL string
 	}
 
 	resource := model.Resource{
-		Title:      title,
-		Summary:    summary,
-		Category:   category,
-		FileName:   filepath.Base(file.Filename),
-		FilePath:   savePath,
-		FileSize:   file.Size,
-		FileType:   file.Header.Get("Content-Type"),
-		FileExt:    strings.ToLower(ext),
-		CoverURL:   coverURL,
-		Status:     1,
-		CreatedBy:  uploaderID,
+		Title:     title,
+		Summary:   summary,
+		Category:  category,
+		FileName:  filepath.Base(file.Filename),
+		FilePath:  savePath,
+		FileSize:  file.Size,
+		FileType:  file.Header.Get("Content-Type"),
+		FileExt:   strings.ToLower(ext),
+		CoverURL:  coverURL,
+		Status:    1,
+		CreatedBy: uploaderID,
 	}
 
 	if err := s.db.Create(&resource).Error; err != nil {
@@ -196,29 +195,6 @@ func validateResourceUpload(fileName string, size int64) (string, error) {
 	return ext, nil
 }
 
-// validateUploadContent 校验文件内容与扩展名一致：读取文件头 512 字节，
-// 用 http.DetectContentType 嗅探真实类型，防止伪装文件上传。
-func validateUploadContent(ext string, src io.Reader) error {
-	head := make([]byte, 512)
-	n, err := io.ReadFull(src, head)
-	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
-		return errors.New("读取文件失败")
-	}
-	ctype := http.DetectContentType(head[:n])
-
-	if strings.HasPrefix(ctype, "text/html") {
-		return errors.New("文件内容与扩展名不符")
-	}
-	imageExts := map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true}
-	if imageExts[ext] && !strings.HasPrefix(ctype, "image/") {
-		return errors.New("文件内容与扩展名不符")
-	}
-	if ext == ".pdf" && ctype != "application/pdf" && ctype != "application/octet-stream" {
-		return errors.New("文件内容与扩展名不符")
-	}
-	return nil
-}
-
 func (s *ResourceService) IncrementView(id uint) {
 	s.db.Model(&model.Resource{}).Where("id = ?", id).
 		UpdateColumn("view_count", gorm.Expr("view_count + 1"))
@@ -226,10 +202,10 @@ func (s *ResourceService) IncrementView(id uint) {
 
 func (s *ResourceService) RecordDownload(userID uint, resourceID uint, ip, userAgent string) error {
 	log := model.DownloadLog{
-		UserID:       userID,
-		ResourceID:   resourceID,
-		IP:           ip,
-		UserAgent:    userAgent,
+		UserID:     userID,
+		ResourceID: resourceID,
+		IP:         ip,
+		UserAgent:  userAgent,
 	}
 	return s.db.Create(&log).Error
 }

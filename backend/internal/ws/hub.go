@@ -163,3 +163,26 @@ func (h *Hub) SendToUser(userID uint, payload []byte) {
 		}
 	}
 }
+
+// SendToUsers 给指定用户集合的所有在线连接投递统一信封消息（按需定向推送）。
+// 私信等机密内容只发给会话双方，绝不走全员广播。
+func (h *Hub) SendToUsers(userIDs []uint, data interface{}) {
+	if len(userIDs) == 0 {
+		return
+	}
+	payload, err := json.Marshal(Envelope{Type: TypeMessage, Data: data})
+	if err != nil {
+		return
+	}
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for _, uid := range userIDs {
+		for c := range h.clients[uid] {
+			select {
+			case c.Send <- payload:
+			default:
+				// 慢客户端：写缓冲已满，丢弃该帧（后续由心跳/超时断开）
+			}
+		}
+	}
+}

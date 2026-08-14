@@ -10,12 +10,8 @@ export const api = {
   getNews: (page = 1, pageSize = 10) => request(`/news?page=${page}&page_size=${pageSize}`),
   getNewsDetail: (id: number) => request(`/news/${id}`),
   getResources: () => request('/resources'),
-  downloadResource: (id: number) => {
-    const token = tokenStore.getUser();
-    return token
-      ? `/api/v1/resources/download/${id}?token=${encodeURIComponent(token)}`
-      : `/api/v1/resources/download/${id}`;
-  },
+  // #14：不再通过 query 携带 token（会落入访问日志），下载保持匿名可访问
+  downloadResource: (id: number) => `/api/v1/resources/download/${id}`,
   getShowcases: (params?: Record<string, string>) =>
     request('/showcases' + (params ? '?' + new URLSearchParams(params) : '')),
   getShowcase: (id: number) => request(`/showcases/${id}`),

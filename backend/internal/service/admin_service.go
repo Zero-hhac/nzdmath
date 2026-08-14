@@ -93,10 +93,13 @@ func (s *AdminService) Login(username, password string) (string, *model.Admin, e
 		return "", nil, errors.New("生成 Token 失败")
 	}
 
+	// #5：admin_token 有效期读取配置，并登记用户→token 索引便于统一吊销
+	ttl := time.Duration(config.GlobalConfig.JWT.ExpireHours) * time.Hour
 	redisKey := middleware.AdminTokenPrefix + token
-	if err := s.rdb.Set(context.Background(), redisKey, admin.ID, 24*time.Hour).Err(); err != nil {
+	if err := s.rdb.Set(context.Background(), redisKey, admin.ID, ttl).Err(); err != nil {
 		return "", nil, errors.New("Redis 保存 token 失败")
 	}
+	IndexUserToken(s.rdb, admin.ID, token, middleware.AdminTokenPrefix, ttl)
 
 	now := time.Now()
 	s.db.Model(&admin).Update("last_login_at", &now)
@@ -106,7 +109,14 @@ func (s *AdminService) Login(username, password string) (string, *model.Admin, e
 
 func (s *AdminService) Logout(token string) error {
 	redisKey := middleware.AdminTokenPrefix + token
-	return s.rdb.Del(context.Background(), redisKey).Err()
+	if err := s.rdb.Del(context.Background(), redisKey).Err(); err != nil {
+		return err
+	}
+	// #5：登出时同步从用户索引移除
+	if claims, err := utils.ParseToken(token); err == nil {
+		UnindexUserToken(s.rdb, claims.UserID, token, middleware.AdminTokenPrefix)
+	}
+	return nil
 }
 
 // ChangePassword 管理员自助修改密码（后台“账号设置”入口）。
@@ -131,6 +141,12 @@ func (s *AdminService) ChangePassword(adminID uint, oldPassword, newPassword str
 	}
 	// 同步更新会员用户表
 	s.db.Model(&model.User{}).Where("username = ?", admin.Username).Update("password_hash", string(hashed))
+	// #5：改密后吊销该管理员全部会话（admin_token 与同名会员行 user_token 一并吊销）
+	RevokeUserTokens(s.rdb, admin.ID)
+	var shadow model.User
+	if err := s.db.Where("username = ?", admin.Username).First(&shadow).Error; err == nil {
+		RevokeUserTokens(s.rdb, shadow.ID)
+	}
 	return nil
 }
 

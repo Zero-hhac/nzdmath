@@ -38,19 +38,6 @@ const (
 	chatDeleteRetention = 10 * time.Minute
 )
 
-var chatImageExts = map[string]bool{
-	".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true,
-}
-
-var chatFileExts = map[string]bool{
-	".txt": true, ".md": true, ".json": true, ".csv": true,
-	".pdf": true, ".doc": true, ".docx": true, ".ppt": true, ".pptx": true,
-}
-
-var chatVideoExts = map[string]bool{
-	".mp4": true, ".mov": true, ".avi": true, ".mkv": true, ".webm": true, ".flv": true, ".wmv": true,
-}
-
 type ChatService struct {
 	db        *gorm.DB
 	cache     *cache.Cache

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/src/lib/api';
 import { useToast } from '@/src/lib/toast';
+import { authFetchBlob } from '@/src/lib/http';
 
 interface Conversation {
   user_id: number;
@@ -326,24 +327,14 @@ export const DirectChatPanel: React.FC = () => {
                           }`}
                         >
                           {msg.message_type === 'image' ? (
-                            <a href={msg.file_url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl">
-                              <img src={msg.file_url} alt={msg.file_name} className="max-h-60 max-w-full rounded-xl object-cover hover:scale-105 transition-transform" />
-                            </a>
+                            <DirectFileImage fileUrl={msg.file_url} fileName={msg.file_name} />
                           ) : msg.message_type === 'file' ? (
-                            <a
-                              href={msg.file_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className={`flex items-center gap-2 font-medium underline underline-offset-2 ${
-                                isAdmin ? 'text-white hover:text-white/80' : 'text-primary hover:text-primary-hover'
-                              }`}
-                            >
-                              <FileText className="w-4 h-4 shrink-0" />
-                              <span className="truncate">{msg.file_name || '附件'}</span>
-                              <span className="text-[10px] opacity-75 shrink-0">
-                                ({msg.file_size ? `${Math.round(msg.file_size / 1024)}KB` : ''})
-                              </span>
-                            </a>
+                            <DirectFileDownload
+                              fileUrl={msg.file_url}
+                              fileName={msg.file_name}
+                              fileSize={msg.file_size}
+                              light={isAdmin}
+                            />
                           ) : (
                             <span>{msg.content}</span>
                           )}
@@ -420,3 +411,90 @@ export const DirectChatPanel: React.FC = () => {
     </div>
   );
 };
+
+// DirectFileImage 鉴权加载私聊图片：/uploads/direct 需要 Authorization 头，
+// <img> 裸链接会 401，必须 fetch + blob URL（#22）。
+function DirectFileImage({ fileUrl, fileName }: { fileUrl: string; fileName: string }) {
+  const [src, setSrc] = useState('');
+  const objectUrlRef = useRef('');
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!fileUrl) return;
+    authFetchBlob(fileUrl, 'admin')
+      .then((blob) => {
+        if (cancelled) return;
+        objectUrlRef.current = URL.createObjectURL(blob);
+        setSrc(objectUrlRef.current);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [fileUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = '';
+      }
+    };
+  }, []);
+
+  if (!src) {
+    return (
+      <div className="flex h-40 items-center justify-center text-xs text-zinc-400">
+        图片加载中...
+      </div>
+    );
+  }
+
+  return (
+    <a href={src} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl">
+      <img src={src} alt={fileName} className="max-h-60 max-w-full rounded-xl object-cover hover:scale-105 transition-transform" />
+    </a>
+  );
+}
+
+// DirectFileDownload 鉴权下载私聊附件（blob 方案，管理端 admin token）。
+function DirectFileDownload({ fileUrl, fileName, fileSize, light }: { fileUrl: string; fileName: string; fileSize: number; light: boolean }) {
+  const { showToast } = useToast();
+  const [downloading, setDownloading] = useState(false);
+
+  const download = async () => {
+    if (!fileUrl || downloading) return;
+    setDownloading(true);
+    try {
+      const blob = await authFetchBlob(fileUrl, 'admin');
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = fileName || '附件';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      showToast('文件加载失败，请重试', 'error');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={download}
+      disabled={downloading}
+      className={`flex items-center gap-2 font-medium underline underline-offset-2 ${light ? 'text-white hover:text-white/80' : 'text-primary hover:text-primary-hover'}`}
+    >
+      <FileText className="w-4 h-4 shrink-0" />
+      <span className="truncate">{fileName || '附件'}</span>
+      <span className="text-[10px] opacity-75 shrink-0">
+        ({fileSize ? `${Math.round(fileSize / 1024)}KB` : ''})
+      </span>
+      {downloading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+    </button>
+  );
+}
